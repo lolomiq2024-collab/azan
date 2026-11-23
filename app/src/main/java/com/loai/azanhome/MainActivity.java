@@ -1,24 +1,30 @@
 package com.loai.azanhome;
 
 import android.app.Activity;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 
 /**
  * Azan Home — يعرض الصفحة المدمجة (assets/index.html) بملء الشاشة.
+ * بث IPTV/HLS يُشغَّل عبر ExoPlayer (Media3) خلف الـ WebView الشفاف.
  * By Loai.miqdadi
  */
 public class MainActivity extends Activity {
 
     private static final String START_URL = "file:///android_asset/index.html";
     private WebView web;
+    private ExoBridge exo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,11 +32,24 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xFF050A18);
+
+        // طبقة الفيديو (خلف الصفحة)
+        SurfaceView surface = new SurfaceView(this);
+        surface.setVisibility(View.GONE);
+        root.addView(surface, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         web = new WebView(this);
-        web.setBackgroundColor(0xFF050A18);
+        web.setBackgroundColor(Color.TRANSPARENT);   // شفاف كي يظهر الفيديو من خلفه عند التشغيل
         web.setFocusable(true);
         web.setFocusableInTouchMode(true);
-        setContentView(web);
+        root.addView(web, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+
+        exo = new ExoBridge(this, root, surface);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -44,6 +63,8 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
         s.setTextZoom(100);
+
+        web.addJavascriptInterface(exo, "ExoBridge");
 
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
@@ -85,6 +106,14 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onStop() {
+        if (exo != null) {
+            exo.pauseIfPlaying();
+        }
+        super.onStop();
+    }
+
     /** زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). للخروج استخدم زر الرئيسية. */
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
@@ -106,6 +135,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (exo != null) {
+            exo.release();
+            exo = null;
+        }
         if (web != null) {
             web.destroy();
             web = null;

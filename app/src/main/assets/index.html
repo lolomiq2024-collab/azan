@@ -90,6 +90,7 @@ body{font-family:Tajawal,Cairo,"Droid Arabic Naskh","Noto Naskh Arabic",Roboto,A
 .sr .v{direction:rtl;opacity:.95}
 
 #vw{position:absolute;top:0;left:0;width:1920px;height:1080px;background:#000;z-index:3}
+html.exo,html.exo body,html.exo #vw,html.exo #screen{background:transparent!important}html.exo #bgs,html.exo #shade,html.exo #veil{display:none!important}
 #vid{position:absolute;top:0;left:0;width:1920px;height:1080px;background:#000}
 #vOv{position:absolute;left:0;right:0;bottom:0;padding:70px 90px 46px;background:-webkit-linear-gradient(top,rgba(0,0,0,0),rgba(0,0,0,.85));background:linear-gradient(to bottom,rgba(0,0,0,0),rgba(0,0,0,.85));opacity:0;-webkit-transition:opacity .4s;transition:opacity .4s;direction:rtl}
 #vOv.on{opacity:1}
@@ -758,6 +759,45 @@ function renderTimes(){
   }
 }
 
+/* ===== ExoPlayer: كائن يحاكي عنصر <video> ويعتمد على ExoBridge ===== */
+function exoOn(){return !!(window.ExoBridge&&window.ExoBridge.play);}
+function exoVideo(){
+  var o={paused:true,currentTime:0,duration:NaN,readyState:0,seeking:false,error:null,
+    onerror:null,onplaying:null,onpause:null,onwaiting:null,onseeked:null,ontimeupdate:null,onended:null,onloadedmetadata:null};
+  var st=0,pw=0,meta=false,wasPlaying=false,ended=false,timer=null,src='';
+  function poll(){
+    var r;try{r=String(ExoBridge.state()).split('|');}catch(e){return;}
+    var ns=parseInt(r[0],10)||1,npw=r[1]==='1',pos=parseFloat(r[2])||0,d=parseFloat(r[3])||0,er=r[4]||'';
+    if(er){vWhy='ExoPlayer: '+er;o.error=er;clearInterval(timer);timer=null;if(o.onerror){o.onerror();}return;}
+    o.currentTime=pos;o.duration=d>0?d:NaN;
+    o.paused=!npw;o.readyState=(ns===3||ns===4)?4:(ns===2?1:0);
+    if(d>0&&!meta){meta=true;if(o.onloadedmetadata){o.onloadedmetadata();}}
+    var playing=(ns===3&&npw);
+    if(playing&&!wasPlaying&&o.onplaying){o.onplaying();}
+    if(!playing&&wasPlaying&&ns===3&&!npw&&o.onpause){o.onpause();}
+    if(ns===2&&st!==2&&o.onwaiting){o.onwaiting();}
+    if(ns===4&&!ended){ended=true;if(o.onended){o.onended();}}
+    wasPlaying=playing;st=ns;pw=npw;
+    if(o.ontimeupdate){o.ontimeupdate();}
+  }
+  o.canPlayType=function(){return 'maybe';};
+  o.play=function(){try{ExoBridge.resume();}catch(e){}return null;};
+  o.pause=function(){try{ExoBridge.pause();}catch(e){}};
+  o.load=function(){};
+  o.removeAttribute=function(){try{ExoBridge.stop();}catch(e){}if(timer){clearInterval(timer);timer=null;}};
+  o.getBoundingClientRect=function(){return {left:0,width:1};};
+  o.native=true;
+  Object.defineProperty(o,'src',{
+    get:function(){return src;},
+    set:function(u){
+      src=u;meta=false;ended=false;wasPlaying=false;st=0;o.error=null;o.currentTime=0;o.duration=NaN;o.paused=false;
+      try{ExoBridge.play(u);}catch(e){vWhy='ExoBridge: '+e;if(o.onerror){o.onerror();}return;}
+      if(timer){clearInterval(timer);}
+      timer=setInterval(poll,500);
+    }
+  });
+  return o;
+}
 /* مشغل الفيديو (ملف مجاور للصفحة) */
 var V=null,vT=null,vHide=null,vSave=0,vTile=null,VHLS=null,vWd=null;
 function vSrc(u){
@@ -804,7 +844,7 @@ function vUpd(){
 }
 function vSeek(dt){
   if(!V||!V.duration||!isFinite(V.duration))return;
-  V.currentTime=Math.max(0,Math.min(V.duration-1,V.currentTime+dt));
+  if(V.native){try{ExoBridge.seekTo(Math.max(0,Math.min(V.duration-1,V.currentTime+dt)));}catch(e){}}else{V.currentTime=Math.max(0,Math.min(V.duration-1,V.currentTime+dt));}
   vShow();vUpd();
 }
 function vToggle(){
@@ -820,9 +860,10 @@ function openVideo(t){
   if(A&&!A.paused){try{A.pause();}catch(e){}}
   frame('<div id="vw"><video id="vid" preload="auto" playsinline="" webkit-playsinline=""></video><div id="vMsg"></div><div id="vOv" class="on"><div id="vT">'+t.t+'</div><div id="vSt"></div><div id="vBar"><i id="vFill"></i></div><div id="vTm"></div><div id="vHint">موافق: تشغيل / إيقاف &nbsp;•&nbsp; ◄ ►: 10 ثوانٍ &nbsp;•&nbsp; ▲ ▼: دقيقة &nbsp;•&nbsp; رجوع: خروج</div></div></div>');
   V=$('vid');
+  if(exoOn()&&/^https?:/i.test(t.file)){V=exoVideo();document.documentElement.className+=' exo';}
   var resume=0;
   try{resume=parseInt(localStorage.getItem(vKey())||'0',10)||0;}catch(e){}
-  V.onloadedmetadata=function(){if(resume>0&&resume<V.duration-15){try{V.currentTime=resume;}catch(e){}}};
+  V.onloadedmetadata=function(){if(resume>0&&resume<V.duration-15){try{if(V.native){ExoBridge.seekTo(resume);}else{V.currentTime=resume;}}catch(e){}}};
   V.onplaying=function(){vShow();vUpd();};
   V.onpause=function(){vShow();vUpd();vSavePos();};
   V.onwaiting=vUpd;V.onseeked=vUpd;
@@ -843,7 +884,7 @@ function openVideo(t){
   $('vBar').onclick=function(ev){
     if(ev.stopPropagation){ev.stopPropagation();}
     var r=$('vBar').getBoundingClientRect();
-    if(V.duration&&isFinite(V.duration)){V.currentTime=V.duration*Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));vShow();vUpd();}
+    if(V.duration&&isFinite(V.duration)){var tt=V.duration*Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));if(V.native){try{ExoBridge.seekTo(tt);}catch(e){}}else{V.currentTime=tt;}vShow();vUpd();}
   };
   vSrc(srcs[0]);vArm(t.live);
   var pr=V.play();if(pr&&pr.catch){pr.catch(function(){});}
@@ -859,6 +900,7 @@ function closeVideo(){
   if(VHLS){try{VHLS.destroy();}catch(e){}VHLS=null;}
   if(V){try{V.onerror=null;V.pause();V.removeAttribute('src');V.load();}catch(e){}}
   V=null;
+  document.documentElement.className=document.documentElement.className.replace(/\s*exo\b/g,'');
 }
 
 /* الإعدادات */
