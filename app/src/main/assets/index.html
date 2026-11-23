@@ -46,7 +46,7 @@ body{font-family:Tajawal,Cairo,"Droid Arabic Naskh","Noto Naskh Arabic",Roboto,A
 
 /* صف البلاطات */
 #tiles{position:absolute;left:0;right:0;bottom:64.8px;padding:25.92px 46.08px;display:flex;align-items:center}
-.tile{width:238.08px;height:178.2px;margin-right:22.08px;border-radius:19.44px;padding:17.28px 21.12px;direction:rtl;text-align:right;display:flex;flex-direction:column;justify-content:center;box-shadow:0 10.8px 28.08px rgba(0,0,0,.5);border:4.32px solid rgba(255,255,255,.0);-webkit-transition:-webkit-transform .18s;transition:transform .18s}
+.tile{width:238.08px;height:178.2px;margin-right:22.08px;border-radius:58px;padding:17.28px 21.12px;direction:rtl;text-align:right;display:flex;flex-direction:column;justify-content:center;box-shadow:0 10.8px 28.08px rgba(0,0,0,.5);border:4.32px solid rgba(255,255,255,.0);-webkit-transition:-webkit-transform .18s;transition:transform .18s}
 .tile:last-child{margin-right:0}
 .tile .tt{font-size:29.16px;font-weight:700;line-height:1.3;text-shadow:0 2.16px 6.48px rgba(0,0,0,.35)}
 .tile .ts{font-size:16.74px;opacity:.88;margin-top:8.64px}
@@ -148,7 +148,7 @@ body{font-family:Tajawal,Cairo,"Droid Arabic Naskh","Noto Naskh Arabic",Roboto,A
 
 /* ===== دروس إسلامية ===== */
 #dm{position:absolute;top:250px;left:48px;width:1824px;display:flex;flex-wrap:wrap;justify-content:center;direction:rtl}
-.dcard{width:560px;height:210px;margin:0 20px 22px;border-radius:26px;padding:26px 34px;text-align:right;border:5px solid rgba(255,255,255,0);box-shadow:0 18px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;justify-content:center;-webkit-transition:-webkit-transform .15s;transition:transform .15s}
+.dcard{width:560px;height:210px;margin:0 20px 22px;border-radius:60px;padding:26px 52px;text-align:right;border:5px solid rgba(255,255,255,0);box-shadow:0 18px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;justify-content:center;-webkit-transition:-webkit-transform .15s;transition:transform .15s}
 .dcard .dt{font-size:40px;font-weight:700;line-height:1.3;text-shadow:0 3px 10px rgba(0,0,0,.4)}
 .dcard .dw{font-size:25px;margin-top:8px;opacity:.95}
 .dcard .dn{font-size:21px;margin-top:14px;opacity:.85}
@@ -282,14 +282,15 @@ var CITIES=[
  {n:'دبي',lat:25.2048,lng:55.2708,tz:4,f:18.2,i:18.2}
 ];
 
+function rgba(c,a){var n=parseInt(c.slice(1),16);return 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')';}
 var TILES=[
  {id:'kahf',t:'سورة الكهف',s:'مشاري العفاسي',c:['#1aa5ab','#0d6c78'],k:'audio',
   src:['https://server8.mp3quran.net/afs/018.mp3','https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/018.mp3','http://server8.mp3quran.net/afs/018.mp3']},
  {id:'baq',t:'سورة البقرة',s:'محمد صديق المنشاوي',c:['#a2909d','#6b596a'],k:'audio',
   src:['https://server10.mp3quran.net/minsh/002.mp3','https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/002.mp3','http://server10.mp3quran.net/minsh/002.mp3']},
- {id:'radios',t:'الإذاعات',s:'القرآن الكريم • بث مباشر',c:['#b43fcb','#681a8c'],k:'radios'},
+ {id:'radios',t:'الإذاعات',s:'بث مباشر',c:['#b43fcb','#681a8c'],k:'radios'},
  {id:'quran',t:'القرآن الكريم',s:'بصوت القراء',c:['#14937f','#0b5560'],k:'quran'},
- {id:'duroos',t:'دروس إسلامية',s:'الشعراوي • العوضي • طارق سويدان',c:['#c98a2c','#7a4510'],k:'duroos'},
+ {id:'duroos',t:'دروس إسلامية',s:'الشعراوي • العوضي • والمزيد',c:['#c98a2c','#7a4510'],k:'duroos'},
  {id:'sab',t:'أذكار الصباح',s:'من حصن المسلم',c:['#f28d4e','#d6552a'],k:'adhkar',set:'morning'},
  {id:'mas',t:'أذكار المساء',s:'من حصن المسلم',c:['#2c66da','#12399a'],k:'adhkar',set:'evening'},
  {id:'ruq',t:'الرقية الشرعية',s:'نخبة من القراء',c:['#1d9bc0','#0c5f85'],k:'ruqya'},
@@ -1338,7 +1339,7 @@ function openDuroos(view,sel,ds){
     h+='<div id="dm">';
     for(i=0;i<DS.length;i++){
       d=DS[i];
-      h+='<div class="dcard" id="dc'+i+'" style="background:linear-gradient(135deg,'+d.c[0]+','+d.c[1]+')"><div class="dt">'+d.t+'</div><div class="dw">'+d.who+'</div><div class="dn">'+d.items.length+' '+d.unit+'</div></div>';
+      h+='<div class="dcard" id="dc'+i+'" style="background:linear-gradient(135deg,'+rgba(d.c[0],.5)+','+rgba(d.c[1],.5)+')"><div class="dt">'+d.t+'</div><div class="dw">'+d.who+'</div><div class="dn">'+d.items.length+' '+d.unit+'</div></div>';
     }
     h+='</div>';
   }else{
@@ -1449,7 +1450,7 @@ function renderTiles(){
   var h='',i,t;
   for(i=0;i<TILES.length;i++){
     t=TILES[i];
-    h+='<div class="tile" id="tile'+i+'" style="background:linear-gradient(135deg,'+t.c[0]+','+t.c[1]+')"><div class="tt">'+t.t+'</div><div class="ts" id="ts'+i+'">'+t.s+'</div></div>';
+    h+='<div class="tile" id="tile'+i+'" style="background:linear-gradient(135deg,'+rgba(t.c[0],.5)+','+rgba(t.c[1],.5)+')"><div class="tt">'+t.t+'</div><div class="ts" id="ts'+i+'">'+t.s+'</div></div>';
   }
   $('tiles').innerHTML=h;
   for(i=0;i<TILES.length;i++){(function(j){$('tile'+j).onclick=function(){ti=j;zone='tiles';paintHome();openTile(j);};})(i);}
