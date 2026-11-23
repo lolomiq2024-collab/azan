@@ -137,9 +137,9 @@ public class ExoBridge {
                 new DefaultRenderersFactory(act).setEnableDecoderFallback(true))
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(http))
                 .setLoadControl(new DefaultLoadControl.Builder()
-                        .setBufferDurationsMs(20000, 40000, 2500, 5000)
-                        .setTargetBufferBytes(16 * 1024 * 1024)
-                        .setPrioritizeTimeOverSizeThresholds(false)
+                        .setBufferDurationsMs(30000, 90000, 3000, 6000)
+                        .setTargetBufferBytes(48 * 1024 * 1024)
+                        .setPrioritizeTimeOverSizeThresholds(true)
                         .build())
                 .build();
         player.setVideoSurfaceView(surface);
