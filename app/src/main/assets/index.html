@@ -768,9 +768,9 @@ function vSrc(u){
       if(V!==v)return;
       if(ok&&window.Hls&&Hls.isSupported()){
         VHLS=new Hls();VHLS.loadSource(u);VHLS.attachMedia(v);
-        VHLS.on(Hls.Events.ERROR,function(e,d){if(d&&d.fatal&&V===v&&v.onerror){v.onerror();}});
+        VHLS.on(Hls.Events.ERROR,function(e,d){if(d&&d.fatal){vWhy='HLS: '+d.type+' / '+d.details+(d.response&&d.response.code?' ('+d.response.code+')':'');}if(d&&d.fatal&&V===v&&v.onerror){v.onerror();}});
         var p=v.play();if(p&&p.catch){p.catch(function(){});}
-      }else if(v.onerror){v.onerror();}
+      }else{vWhy=ok?'المتصفح لا يدعم MSE/HLS':'تعذّر تحميل hls.js من الإنترنت';if(v.onerror){v.onerror();}}
     });
     return;
   }
@@ -836,7 +836,7 @@ function openVideo(t){
       return;
     }
     var m=$('vMsg');
-    m.innerHTML='لم أتمكن من تشغيل الفيديو.<br>'+(t.file.indexOf('http')===0?'تأكد من اتصال الإنترنت ثم حاول مرة أخرى.':'تأكد أن الملف <b>'+t.file+'</b> موجود في نفس مجلد الصفحة، وأنه بصيغة MP4 (H.264).');
+    m.innerHTML='لم أتمكن من تشغيل الفيديو.<br>'+(vWhy?'<small style="font-size:26px;opacity:.8;direction:ltr;unicode-bidi:embed">'+vWhy+' • '+wvVer()+'</small><br>':'')+(t.file.indexOf('http')===0?'تأكد من اتصال الإنترنت ثم حاول مرة أخرى.':'تأكد أن الملف <b>'+t.file+'</b> موجود في نفس مجلد الصفحة، وأنه بصيغة MP4 (H.264).');
     m.style.display='block';$('vOv').className='on';vUpd();
   };
   $('vw').onclick=vToggle;
@@ -1376,7 +1376,7 @@ var IP_ALL=[
 var IPTV=[],ipLd=0,IP_URL='https://iptv-org.github.io/iptv/languages/ara.m3u';
 function ipRebuild(){
   var i;IPTV.length=0;
-  for(i=0;i<IP_ALL.length;i++){if(IP_ALL[i].items.length){IPTV.push(IP_ALL[i]);}}
+  for(i=0;i<IP_ALL.length;i++){IPTV.push(IP_ALL[i]);}
 }
 function ipKey(n){return (n||'').toLowerCase().replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/[^a-z0-9؀-ۿ]/g,'');}
 function ipCat(g){
@@ -1420,28 +1420,39 @@ function ipParse(txt){
   }
   return out;
 }
-function ipApply(list){
-  ipMerge(list);
+var ipWhy='',vWhy='';
+function wvVer(){var m=/Chrome\/(\d+)/.exec(navigator.userAgent||'');return m?('WebView '+m[1]):'WebView ?';}
+var ipStat='',IP_SRC=[
+  'https://iptv-org.github.io/iptv/languages/ara.m3u',
+  'https://cdn.jsdelivr.net/gh/iptv-org/iptv@gh-pages/languages/ara.m3u',
+  'https://raw.githubusercontent.com/iptv-org/iptv/gh-pages/languages/ara.m3u'
+];
+function ipRefresh(){
   if(scr==='duroos'&&DS===IPTV&&dv==='menu'){openDuroos('menu',Math.min(dsel,Math.max(0,IPTV.length-1)),IPTV);}
 }
-function ipLoad(){
-  if(ipLd)return;ipLd=1;
+function ipApply(list){ipMerge(list);ipStat='ok';ipRefresh();}
+function ipTry(n){
+  if(n>=IP_SRC.length){ipLd=0;ipStat='fail';ipRefresh();return;}
+  var x;
   try{
-    var x=new XMLHttpRequest();
-    x.open('GET',IP_URL,true);x.timeout=25000;
+    x=new XMLHttpRequest();
+    x.open('GET',IP_SRC[n],true);x.timeout=40000;
     x.onload=function(){
-      if(x.status===200&&x.responseText&&x.responseText.indexOf('#EXTM3U')>-1){
-        var l=ipParse(x.responseText);
-        if(l.length){
-          try{localStorage.setItem('iptv_cache',JSON.stringify(l));}catch(e){}
-          ipApply(l);
-        }
-      }
-      ipLd=0;
+      var l=null;
+      if(x.status===200&&x.responseText&&x.responseText.indexOf('#EXTM3U')>-1){l=ipParse(x.responseText);if(!l.length){ipWhy='قائمة فارغة';}}
+      else{ipWhy='HTTP '+x.status;}
+      if(l&&l.length){
+        try{localStorage.setItem('iptv_cache',JSON.stringify(l));}catch(e){}
+        ipLd=0;ipApply(l);
+      }else{ipTry(n+1);}
     };
-    x.onerror=x.ontimeout=function(){ipLd=0;};
+    x.onerror=function(){ipWhy='خطأ شبكة/شهادة';ipTry(n+1);};x.ontimeout=function(){ipWhy='انتهت المهلة';ipTry(n+1);};
     x.send();
-  }catch(e){ipLd=0;}
+  }catch(e){ipWhy='استثناء';ipTry(n+1);}
+}
+function ipLoad(){
+  if(ipLd)return;ipLd=1;ipStat='loading';
+  ipTry(0);
 }
 function ipOpen(){
   var l=null;
@@ -1468,7 +1479,7 @@ function openDuroos(view,sel,ds){
     h+='<div id="dm">';
     for(i=0;i<DS.length;i++){
       d=DS[i];
-      h+='<div class="dcard" id="dc'+i+'" style="background:linear-gradient(135deg,'+rgba(d.c[0],.5)+','+rgba(d.c[1],.5)+')"><div class="dt">'+d.t+'</div><div class="dw">'+d.who+'</div><div class="dn">'+d.items.length+' '+d.unit+'</div></div>';
+      h+='<div class="dcard" id="dc'+i+'" style="background:linear-gradient(135deg,'+rgba(d.c[0],.5)+','+rgba(d.c[1],.5)+')"><div class="dt">'+d.t+'</div><div class="dw">'+d.who+'</div><div class="dn">'+(d.items.length?(d.items.length+' '+d.unit):(DS===IPTV?(ipStat==='fail'?('تعذّر التحميل ('+ipWhy+' • '+wvVer()+') — اضغط للمحاولة'):'جارٍ التحميل…'):('0 '+d.unit)))+'</div></div>';
     }
     h+='</div>';
   }else{
@@ -1480,7 +1491,7 @@ function openDuroos(view,sel,ds){
   frame(h);
   $('qbg').innerHTML=qScene();
   if(dv==='menu'){
-    for(i=0;i<DS.length;i++){(function(j){$('dc'+j).onclick=function(){dsel=j;openDuroos('list',j);};})(i);}
+    for(i=0;i<DS.length;i++){(function(j){$('dc'+j).onclick=function(){dsel=j;if(DS===IPTV&&!DS[j].items.length){ipLoad();ipRefresh();return;}openDuroos('list',j);};})(i);}
   }else{
     if(di>=n){di=0;}
     dRow=Math.max(0,Math.floor(di/4)-3);
@@ -1544,7 +1555,7 @@ function routeDuroos(k){
   var n;
   if(dv==='menu'){
     if(k==='back'){back();}
-    else if(k==='ok'){di=0;openDuroos('list',dsel);}
+    else if(k==='ok'){if(DS===IPTV&&dv==='menu'&&!DS[dsel].items.length){ipLoad();ipRefresh();}else{di=0;openDuroos('list',dsel);}}
     else if(k==='right'&&dsel>0){dsel--;dPaint();}
     else if(k==='left'&&dsel<DS.length-1){dsel++;dPaint();}
     else if(k==='up'&&dsel>=3){dsel-=3;dPaint();}
