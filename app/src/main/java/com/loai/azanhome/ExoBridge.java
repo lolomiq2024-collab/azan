@@ -9,7 +9,6 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.webkit.JavascriptInterface;
 
-import androidx.annotation.NonNull;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -83,15 +82,15 @@ public class ExoBridge {
         player.addListener(new Player.Listener() {
             @Override public void onPlaybackStateChanged(int s) { state = s; }
             @Override public void onPlayWhenReadyChanged(boolean p, int r) { playWhenReady = p; }
-            @Override public void onVideoSizeChanged(@NonNull VideoSize s) {
-                if (s.width > 0 && s.height > 0) {
+@Override public void onVideoSizeChanged(VideoSize s) {
+    if (s.width > 0 && s.height > 0) {
                     vw = Math.round(s.width * s.pixelWidthHeightRatio);
                     vh = s.height;
                     fit();
                 }
             }
-            @Override public void onPlayerError(@NonNull PlaybackException e) {
-                err = e.getErrorCodeName() + (e.getCause() != null ? " / " + e.getCause().getClass().getSimpleName() : "");
+@Override public void onPlayerError(PlaybackException e) {
+    err = e.getErrorCodeName() + (e.getCause() != null ? " / " + e.getCause().getClass().getSimpleName() : "");
             }
         });
         ui.post(tick);
