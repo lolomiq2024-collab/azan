@@ -15,6 +15,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 
@@ -73,24 +74,27 @@ public class ExoBridge {
                 .setConnectTimeoutMs(15000)
                 .setReadTimeoutMs(15000)
                 .setUserAgent("Mozilla/5.0 (Linux; Android) AzanHome/1.0");
-        player = new ExoPlayer.Builder(act)
+        player = new ExoPlayer.Builder(act,
+                new DefaultRenderersFactory(act).setEnableDecoderFallback(true))
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(http))
                 .setLoadControl(new DefaultLoadControl.Builder()
                         .setBufferDurationsMs(15000, 50000, 1500, 3000).build())
                 .build();
         player.setVideoSurfaceView(surface);
+        player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                .setMaxVideoSize(1920, 1080).build());
         player.addListener(new Player.Listener() {
             @Override public void onPlaybackStateChanged(int s) { state = s; }
             @Override public void onPlayWhenReadyChanged(boolean p, int r) { playWhenReady = p; }
-@Override public void onVideoSizeChanged(VideoSize s) {
-    if (s.width > 0 && s.height > 0) {
+            @Override public void onVideoSizeChanged(VideoSize s) {
+                if (s.width > 0 && s.height > 0) {
                     vw = Math.round(s.width * s.pixelWidthHeightRatio);
                     vh = s.height;
                     fit();
                 }
             }
-@Override public void onPlayerError(PlaybackException e) {
-    err = e.getErrorCodeName() + (e.getCause() != null ? " / " + e.getCause().getClass().getSimpleName() : "");
+            @Override public void onPlayerError(PlaybackException e) {
+                err = e.getErrorCodeName() + (e.getCause() != null ? " / " + e.getCause().getClass().getSimpleName() : "");
             }
         });
         ui.post(tick);
