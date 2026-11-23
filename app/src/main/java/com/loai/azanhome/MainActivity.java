@@ -35,8 +35,10 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF050A18);
 
-        // طبقة الفيديو (خلف الصفحة)
+        // طبقة الفيديو (فوق الصفحة)
         SurfaceView surface = new SurfaceView(this);
+        surface.setZOrderOnTop(true);      // الفيديو فوق الصفحة (أضمن على أجهزة التلفاز)
+        surface.setFocusable(false);       // يبقى التحكم بالريموت للصفحة
         surface.setVisibility(View.GONE);
         root.addView(surface, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
