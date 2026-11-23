@@ -289,6 +289,7 @@ var TILES=[
  {id:'baq',t:'سورة البقرة',s:'محمد صديق المنشاوي',c:['#a2909d','#6b596a'],k:'audio',
   src:['https://server10.mp3quran.net/minsh/002.mp3','https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/002.mp3','http://server10.mp3quran.net/minsh/002.mp3']},
  {id:'radios',t:'الإذاعات',s:'بث مباشر',c:['#b43fcb','#681a8c'],k:'radios'},
+ {id:'iptv',t:'IPTV',s:'قنوات بث مباشر',c:['#e0457b','#8a1c4f'],k:'iptv'},
  {id:'quran',t:'القرآن الكريم',s:'بصوت القراء',c:['#14937f','#0b5560'],k:'quran'},
  {id:'duroos',t:'دروس إسلامية',s:'الشعراوي • العوضي • والمزيد',c:['#c98a2c','#7a4510'],k:'duroos'},
  {id:'sab',t:'أذكار الصباح',s:'من حصن المسلم',c:['#f28d4e','#d6552a'],k:'adhkar',set:'morning'},
@@ -705,6 +706,7 @@ function openTile(i){
   else if(t.k==='duroos'){openDuroos('menu');}
   else if(t.k==='radios'){openDuroos('list',0,RAD);}
   else if(t.k==='ruqya'){openDuroos('list',0,RUQ);}
+  else if(t.k==='iptv'){ipOpen();}
   else{openTimes();}
 }
 function openPlayer(t){
@@ -757,7 +759,29 @@ function renderTimes(){
 }
 
 /* مشغل الفيديو (ملف مجاور للصفحة) */
-var V=null,vT=null,vHide=null,vSave=0,vTile=null;
+var V=null,vT=null,vHide=null,vSave=0,vTile=null,VHLS=null,vWd=null;
+function vSrc(u){
+  if(VHLS){try{VHLS.destroy();}catch(e){}VHLS=null;}
+  var v=V;
+  if(/\.m3u8(\?|$)/i.test(u)&&!v.canPlayType('application/vnd.apple.mpegurl')){
+    ensureHls(function(ok){
+      if(V!==v)return;
+      if(ok&&window.Hls&&Hls.isSupported()){
+        VHLS=new Hls();VHLS.loadSource(u);VHLS.attachMedia(v);
+        VHLS.on(Hls.Events.ERROR,function(e,d){if(d&&d.fatal&&V===v&&v.onerror){v.onerror();}});
+        var p=v.play();if(p&&p.catch){p.catch(function(){});}
+      }else if(v.onerror){v.onerror();}
+    });
+    return;
+  }
+  v.src=u;
+}
+function vArm(live){
+  if(vWd){clearTimeout(vWd);vWd=null;}
+  if(!live)return;
+  var me=V;
+  vWd=setTimeout(function(){if(V===me&&me.readyState<3&&me.onerror){me.onerror();}},15000);
+}
 function vKey(){return 'vpos_'+(vTile?vTile.file:'');}
 function vFmt(s){s=Math.floor(s||0);var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return (h>0?h+':'+pad(m):m)+':'+pad(s%60);}
 function vShow(){
@@ -807,7 +831,7 @@ function openVideo(t){
   var srcs=[t.file].concat(t.alt||[]),si=0;
   V.onerror=function(){
     if(si<srcs.length-1){
-      si++;V.src=srcs[si];
+      si++;vSrc(srcs[si]);vArm(t.live);
       var p2=V.play();if(p2&&p2.catch){p2.catch(function(){});}
       return;
     }
@@ -821,7 +845,7 @@ function openVideo(t){
     var r=$('vBar').getBoundingClientRect();
     if(V.duration&&isFinite(V.duration)){V.currentTime=V.duration*Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));vShow();vUpd();}
   };
-  V.src=srcs[0];
+  vSrc(srcs[0]);vArm(t.live);
   var pr=V.play();if(pr&&pr.catch){pr.catch(function(){});}
   vUpd();
   if(vT){clearInterval(vT);}
@@ -831,6 +855,8 @@ function closeVideo(){
   vSavePos();
   if(vT){clearInterval(vT);vT=null;}
   if(vHide){clearTimeout(vHide);vHide=null;}
+  if(vWd){clearTimeout(vWd);vWd=null;}
+  if(VHLS){try{VHLS.destroy();}catch(e){}VHLS=null;}
   if(V){try{V.onerror=null;V.pause();V.removeAttribute('src');V.load();}catch(e){}}
   V=null;
 }
@@ -1325,6 +1351,109 @@ var RUQ=[
    {t:"آيات سكينة - الشعراء 80",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20shuara%2080.mp3"}
  ]}
 ];
+
+/* ================= IPTV — قنوات بث مباشر بروابط مفتوحة ================= */
+var IP_ALL=[
+ {id:'ip_isl',t:'قنوات إسلامية',who:'قرآن • سنّة • دعوة — بث مباشر',k:'video',live:1,unit:'قناة',c:['#14937f','#0b5560'],items:[
+   {t:'قناة القرآن الكريم — مكة المكرمة',u:['https://win.holol.com/live/quran/playlist.m3u8']},
+   {t:'قناة السنة النبوية — المدينة المنورة',u:['https://win.holol.com/live/sunnah/playlist.m3u8']}
+ ]},
+ {id:'ip_news',t:'قنوات إخبارية',who:'أخبار عربية — بث مباشر',k:'video',live:1,unit:'قناة',c:['#2c66da','#12399a'],items:[
+   {t:'الجزيرة',u:['https://live-hls-apps-aja-fa.getaj.net/AJA/index.m3u8']},
+   {t:'الجزيرة مباشر',u:['https://live-hls-apps-ajm-fa.getaj.net/AJM/index.m3u8']},
+   {t:'العربية',u:['https://live.alarabiya.net/alarabiapublish/alarabiya.smil/playlist.m3u8']},
+   {t:'الحدث',u:['https://av.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8']},
+   {t:'سكاي نيوز عربية',u:['https://stream.skynewsarabia.com/hls/sna.m3u8']},
+   {t:'فرانس 24 بالعربية',u:['https://live.france24.com/hls/live/2037222/F24_AR_HI_HLS/master_5000.m3u8']},
+   {t:'DW عربية',u:['https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/index.m3u8']}
+ ]},
+ {id:'ip_ent',t:'قنوات ترفيهية ومنوعات',who:'منوعات وبرامج — بث مباشر',k:'video',live:1,unit:'قناة',c:['#f28d4e','#d6552a'],items:[
+   {t:'التلفزيون الأردني',u:['https://jrtv-live.ercdn.net/jordanhd/jordanhd.m3u8','https://jrtv-live.ercdn.net/jordantv/play.m3u8']}
+ ]},
+ {id:'ip_mov',t:'أفلام ومسلسلات',who:'قنوات الدراما والسينما — بث مباشر',k:'video',live:1,unit:'قناة',c:['#b43fcb','#681a8c'],items:[]},
+ {id:'ip_kid',t:'قنوات الأطفال',who:'كرتون وبرامج أطفال — بث مباشر',k:'video',live:1,unit:'قناة',c:['#c98a2c','#7a4510'],items:[]}
+];
+var IPTV=[],ipLd=0,IP_URL='https://iptv-org.github.io/iptv/languages/ara.m3u';
+function ipRebuild(){
+  var i;IPTV.length=0;
+  for(i=0;i<IP_ALL.length;i++){if(IP_ALL[i].items.length){IPTV.push(IP_ALL[i]);}}
+}
+function ipKey(n){return (n||'').toLowerCase().replace(/[ً-ْـ]/g,'').replace(/[أإآ]/g,'ا').replace(/[^a-z0-9؀-ۿ]/g,'');}
+function ipCat(g){
+  g=(g||'').toLowerCase().split(';')[0].replace(/^\s+|\s+$/g,'');
+  if(g==='religious')return 0;
+  if(g==='news')return 1;
+  if(g==='movies'||g==='series')return 3;
+  if(g==='kids'||g==='animation')return 4;
+  if(g==='entertainment'||g==='general'||g==='comedy'||g==='family'||g==='lifestyle'||g==='music'||g==='culture'||g==='public'||g==='classic'||g==='documentary')return 2;
+  return -1;
+}
+var IP_BAD=/christ|jesus|church|coptic|bible|sat-?7|miracle|agape|aghapy|logos|noursat|kto|المسيح|مسيحي|قبط|الكرمة|نور ?سات|كنيس|xxx|adult/i;
+function ipMerge(list){
+  var i,j,c,it,k,seen={},a,cat;
+  for(i=0;i<IP_ALL.length;i++){for(j=0;j<IP_ALL[i].items.length;j++){seen[ipKey(IP_ALL[i].items[j].t)]=IP_ALL[i].items[j];}}
+  for(i=0;i<list.length;i++){
+    it=list[i];c=it.c;k=ipKey(it.t);
+    if(!k)continue;
+    if(seen[k]){a=seen[k].u;if(a.indexOf(it.u)<0&&a.length<4){a.push(it.u);}continue;}
+    cat=IP_ALL[c];
+    if(cat.items.length>=80)continue;
+    seen[k]={t:it.t,u:[it.u]};cat.items.push(seen[k]);
+  }
+  ipRebuild();
+}
+function ipParse(txt){
+  var L=txt.split(/\r?\n/),i,m,g,n,u,c,out=[],ln;
+  for(i=0;i<L.length;i++){
+    ln=L[i];
+    if(ln.indexOf('#EXTINF')!==0)continue;
+    u='';
+    for(var j=i+1;j<L.length&&j<i+4;j++){if(L[j]&&L[j].charAt(0)!=='#'){u=L[j].replace(/\s+$/,'');break;}}
+    if(u.indexOf('https://')!==0)continue;
+    m=/group-title="([^"]*)"/.exec(ln);g=m?m[1]:'';
+    c=ipCat(g);if(c<0)continue;
+    n=ln.substr(ln.lastIndexOf(',')+1).replace(/^\s+|\s+$/g,'');
+    if(/geo-?block/i.test(n))continue;
+    n=n.replace(/\s*[\(\[][^\)\]]*[\)\]]/g,'').replace(/^\s+|\s+$/g,'');
+    if(!n||IP_BAD.test(n))continue;
+    out.push({t:n,u:u,c:c});
+  }
+  return out;
+}
+function ipApply(list){
+  ipMerge(list);
+  if(scr==='duroos'&&DS===IPTV&&dv==='menu'){openDuroos('menu',Math.min(dsel,Math.max(0,IPTV.length-1)),IPTV);}
+}
+function ipLoad(){
+  if(ipLd)return;ipLd=1;
+  try{
+    var x=new XMLHttpRequest();
+    x.open('GET',IP_URL,true);x.timeout=25000;
+    x.onload=function(){
+      if(x.status===200&&x.responseText&&x.responseText.indexOf('#EXTM3U')>-1){
+        var l=ipParse(x.responseText);
+        if(l.length){
+          try{localStorage.setItem('iptv_cache',JSON.stringify(l));}catch(e){}
+          ipApply(l);
+        }
+      }
+      ipLd=0;
+    };
+    x.onerror=x.ontimeout=function(){ipLd=0;};
+    x.send();
+  }catch(e){ipLd=0;}
+}
+function ipOpen(){
+  var l=null;
+  if(!ipOpen.c){
+    ipOpen.c=1;
+    try{l=JSON.parse(localStorage.getItem('iptv_cache')||'null');}catch(e){l=null;}
+    if(l&&l.length){ipMerge(l);}else{ipRebuild();}
+  }
+  openDuroos('menu',0,IPTV);
+  ipLoad();
+}
+ipRebuild();
 var DS=DUR;
 var dRow=0,dv='menu',di=0,dsel=0,dSig='',dCur=null,vRet=0;
 function dIsD(){return !!(A&&A_id&&A_id.indexOf('d_')===0);}
@@ -1334,7 +1463,7 @@ function openDuroos(view,sel,ds){
   if(ds){DS=ds;}else if(view==='menu'){DS=DUR;}
   scr='duroos';dv=view||'menu';
   if(sel!==undefined){dsel=sel;}
-  h='<div id="qbg"></div><div id="qsh"></div><div id="qtop"></div><div id="qT">'+(dv==='menu'?'دروس إسلامية':DS[dsel].t)+'</div>';
+  h='<div id="qbg"></div><div id="qsh"></div><div id="qtop"></div><div id="qT">'+(dv==='menu'?(DS===IPTV?'IPTV':'دروس إسلامية'):DS[dsel].t)+'</div>';
   if(dv==='menu'){
     h+='<div id="dm">';
     for(i=0;i<DS.length;i++){
@@ -1396,7 +1525,7 @@ function dPlayItem(si,i){
   var d=DS[si],it=d.items[i],id='d_'+d.id+'_'+i,t;
   if(d.k==='video'){
     dsel=si;di=i;vRet=1;
-    openVideo({t:it.t,file:it.u,alt:[]});
+    var us=(it.u instanceof Array)?it.u:[it.u];openVideo({t:it.t,file:us[0],alt:us.slice(1),live:d.live});
     return;
   }
   if(A&&A_id===id&&A_state!=='error'&&A_state!=='ended'){plT=A_t;toggleAudio();return;}
@@ -1424,7 +1553,7 @@ function routeDuroos(k){
     return;
   }
   n=DS[dsel].items.length;
-  if(k==='back'){if(DS!==DUR){back();}else{openDuroos('menu');}return;}
+  if(k==='back'){if(DS===RAD||DS===RUQ){back();}else{openDuroos('menu',dsel,DS);}return;}
   if(k==='ok'){dPlay(di);dPaint();return;}
   if(k==='right'&&di>0){di--;}
   else if(k==='left'&&di<n-1){di++;}
