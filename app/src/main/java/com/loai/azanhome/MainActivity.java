@@ -73,6 +73,15 @@ public class MainActivity extends Activity {
                 recreate();   // إن انهارت عملية العرض نعيد التشغيل بدل الإغلاق
                 return true;
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                // إخفاء عنصر <video> القديم كي يظهر فيديو ExoPlayer من خلف الصفحة
+                view.evaluateJavascript(
+                        "(function(){var s=document.createElement('style');"
+                                + "s.textContent='html.exo #vid{display:none!important}';"
+                                + "document.head.appendChild(s);})();", null);
+            }
         });
 
         web.loadUrl(START_URL);
