@@ -1473,9 +1473,24 @@ function ipRefresh(){
   if(scr==='duroos'&&DS===IPTV&&dv==='menu'){openDuroos('menu',Math.min(dsel,Math.max(0,IPTV.length-1)),IPTV);}
 }
 function ipApply(list){ipMerge(list);ipStat='ok';ipRefresh();}
+/* تحميل القائمة عبر الأندرويد (أضمن على الشاشات القديمة) */
+function ipGot(n,st,txt){
+  var l=null;
+  if(st===200&&txt&&txt.indexOf('#EXTM3U')>-1){l=ipParse(txt);if(!l.length){ipWhy='قائمة فارغة';}}
+  else{ipWhy=st?('HTTP '+st):('native: '+txt);}
+  if(l&&l.length){
+    try{localStorage.setItem('iptv_cache',JSON.stringify(l));}catch(e){}
+    ipLd=0;ipApply(l);
+  }else{ipTry(n+1);}
+}
+function ipNat(n){
+  window.ipNative=function(id,st,txt){if(id===n){ipGot(n,st,txt);}};
+  try{ExoBridge.fetch(IP_SRC[n],n);}catch(e){ipWhy='native fetch';ipTry(n+1);}
+}
 function ipTry(n){
   if(n>=IP_SRC.length){ipLd=0;ipStat='fail';ipRefresh();return;}
   var x;
+  if(window.ExoBridge&&ExoBridge.fetch){ipNat(n);return;}
   try{
     x=new XMLHttpRequest();
     x.open('GET',IP_SRC[n],true);x.timeout=40000;
