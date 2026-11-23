@@ -761,6 +761,11 @@ function renderTimes(){
 
 /* ===== ExoPlayer: كائن يحاكي عنصر <video> ويعتمد على ExoBridge ===== */
 function exoOn(){return !!(window.ExoBridge&&window.ExoBridge.play);}
+/* قنوات أسقطت التطبيق سابقاً تُشغَّل بالمتصفح المدمج بدل ExoPlayer */
+function exoLs(k,v){try{if(v===undefined){return localStorage.getItem(k);}if(v===null){localStorage.removeItem(k);}else{localStorage.setItem(k,v);}}catch(e){}return null;}
+function exoBadList(){var l=null;try{l=JSON.parse(exoLs('exo_bad')||'[]');}catch(e){}return l&&l.length?l:[];}
+function exoBad(u){return exoBadList().indexOf(u)>-1;}
+(function(){var p=exoLs('exo_pending');if(p){var l=exoBadList();if(l.indexOf(p)<0){l.push(p);}exoLs('exo_bad',JSON.stringify(l.slice(-40)));exoLs('exo_pending',null);}})();
 function exoVideo(){
   var o={paused:true,currentTime:0,duration:NaN,readyState:0,seeking:false,error:null,
     onerror:null,onplaying:null,onpause:null,onwaiting:null,onseeked:null,ontimeupdate:null,onended:null,onloadedmetadata:null};
@@ -768,7 +773,7 @@ function exoVideo(){
   function poll(){
     var r;try{r=String(ExoBridge.state()).split('|');}catch(e){return;}
     var ns=parseInt(r[0],10)||1,npw=r[1]==='1',pos=parseFloat(r[2])||0,d=parseFloat(r[3])||0,er=r[4]||'';
-    if(er){vWhy='ExoPlayer: '+er;o.error=er;clearInterval(timer);timer=null;if(o.onerror){o.onerror();}return;}
+    if(er){exoLs('exo_pending',null);vWhy='ExoPlayer: '+er;o.error=er;clearInterval(timer);timer=null;if(o.onerror){o.onerror();}return;}
     o.currentTime=pos;o.duration=d>0?d:NaN;
     o.paused=!npw;o.readyState=(ns===3||ns===4)?4:(ns===2?1:0);
     if(d>0&&!meta){meta=true;if(o.onloadedmetadata){o.onloadedmetadata();}}
@@ -791,6 +796,7 @@ function exoVideo(){
     get:function(){return src;},
     set:function(u){
       src=u;meta=false;ended=false;wasPlaying=false;st=0;o.error=null;o.currentTime=0;o.duration=NaN;o.paused=false;
+      exoLs('exo_pending',u);
       try{ExoBridge.play(u);}catch(e){vWhy='ExoBridge: '+e;if(o.onerror){o.onerror();}return;}
       if(timer){clearInterval(timer);}
       timer=setInterval(poll,500);
@@ -860,7 +866,7 @@ function openVideo(t){
   if(A&&!A.paused){try{A.pause();}catch(e){}}
   frame('<div id="vw"><video id="vid" preload="auto" playsinline="" webkit-playsinline=""></video><div id="vMsg"></div><div id="vOv" class="on"><div id="vT">'+t.t+'</div><div id="vSt"></div><div id="vBar"><i id="vFill"></i></div><div id="vTm"></div><div id="vHint">موافق: تشغيل / إيقاف &nbsp;•&nbsp; ◄ ►: 10 ثوانٍ &nbsp;•&nbsp; ▲ ▼: دقيقة &nbsp;•&nbsp; رجوع: خروج</div></div></div>');
   V=$('vid');
-  if(exoOn()&&/^https?:/i.test(t.file)){V=exoVideo();document.documentElement.className+=' exo';}
+  if(exoOn()&&/^https?:/i.test(t.file)&&!exoBad(t.file)){V=exoVideo();document.documentElement.className+=' exo';}
   var resume=0;
   try{resume=parseInt(localStorage.getItem(vKey())||'0',10)||0;}catch(e){}
   V.onloadedmetadata=function(){if(resume>0&&resume<V.duration-15){try{if(V.native){ExoBridge.seekTo(resume);}else{V.currentTime=resume;}}catch(e){}}};
@@ -893,6 +899,7 @@ function openVideo(t){
   vT=setInterval(vUpd,1000);
 }
 function closeVideo(){
+  exoLs('exo_pending',null);
   vSavePos();
   if(vT){clearInterval(vT);vT=null;}
   if(vHide){clearTimeout(vHide);vHide=null;}
