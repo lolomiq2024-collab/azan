@@ -8,6 +8,12 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -30,6 +36,7 @@ public class ExoBridge {
     private final FrameLayout root;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
+    private WebView web;
     private ExoPlayer player;
     private int vw = 16, vh = 9;
 
@@ -98,6 +105,52 @@ public class ExoBridge {
             }
         });
         ui.post(tick);
+    }
+
+    public void setWeb(WebView w) { this.web = w; }
+
+    /** تحميل نص من الإنترنت من جهة الأندرويد؛ النتيجة تُرجَع إلى window.ipNative(id, code, text) */
+    @JavascriptInterface
+    public void fetch(final String url, final int id) {
+        new Thread(() -> {
+            int code = 0;
+            String text = "";
+            HttpURLConnection c = null;
+            try {
+                String u = url;
+                for (int hop = 0; hop < 5; hop++) {
+                    c = (HttpURLConnection) new URL(u).openConnection();
+                    c.setConnectTimeout(20000);
+                    c.setReadTimeout(40000);
+                    c.setInstanceFollowRedirects(false);
+                    c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AzanHome/1.0");
+                    code = c.getResponseCode();
+                    if (code >= 300 && code < 400 && c.getHeaderField("Location") != null) {
+                        u = new URL(new URL(u), c.getHeaderField("Location")).toString();
+                        c.disconnect();
+                        continue;
+                    }
+                    break;
+                }
+                if (code == 200) {
+                    InputStream in = c.getInputStream();
+                    ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                    byte[] buf = new byte[16384];
+                    int n;
+                    while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+                    in.close();
+                    text = bo.toString("UTF-8");
+                }
+            } catch (Exception e) {
+                code = 0;
+                text = e.getClass().getSimpleName() + ": " + e.getMessage();
+            } finally {
+                if (c != null) c.disconnect();
+            }
+            final String js = "window.ipNative&&window.ipNative(" + id + "," + code + ","
+                    + org.json.JSONObject.quote(text) + ");";
+            ui.post(() -> { if (web != null) web.evaluateJavascript(js, null); });
+        }).start();
     }
 
     @JavascriptInterface

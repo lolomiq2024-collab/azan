@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
         setContentView(root);
 
         exo = new ExoBridge(this, root, surface);
+        exo.setWeb(web);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
