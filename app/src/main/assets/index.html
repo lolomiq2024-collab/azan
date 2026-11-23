@@ -147,13 +147,14 @@ body{font-family:Tajawal,Cairo,"Droid Arabic Naskh","Noto Naskh Arabic",Roboto,A
 #qrF{position:absolute;bottom:60px;left:0;right:0;text-align:center;font-size:23px;opacity:.7}
 
 /* ===== دروس إسلامية ===== */
-#dm{position:absolute;top:290px;left:0;right:0;display:flex;justify-content:center;direction:rtl}
-.dcard{width:600px;height:380px;margin:0 28px;border-radius:30px;padding:48px 44px;text-align:right;border:5px solid rgba(255,255,255,0);box-shadow:0 18px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;justify-content:center;-webkit-transition:-webkit-transform .15s;transition:transform .15s}
-.dcard .dt{font-size:52px;font-weight:700;line-height:1.3;text-shadow:0 3px 10px rgba(0,0,0,.4)}
-.dcard .dw{font-size:31px;margin-top:16px;opacity:.95}
-.dcard .dn{font-size:24px;margin-top:34px;opacity:.85}
+#dm{position:absolute;top:250px;left:48px;width:1824px;display:flex;flex-wrap:wrap;justify-content:center;direction:rtl}
+.dcard{width:560px;height:210px;margin:0 20px 22px;border-radius:26px;padding:26px 34px;text-align:right;border:5px solid rgba(255,255,255,0);box-shadow:0 18px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;justify-content:center;-webkit-transition:-webkit-transform .15s;transition:transform .15s}
+.dcard .dt{font-size:40px;font-weight:700;line-height:1.3;text-shadow:0 3px 10px rgba(0,0,0,.4)}
+.dcard .dw{font-size:25px;margin-top:8px;opacity:.95}
+.dcard .dn{font-size:21px;margin-top:14px;opacity:.85}
 .dcard.fc{-webkit-transform:scale(1.07);transform:scale(1.07);border-color:rgba(255,255,255,.95);box-shadow:0 22px 60px rgba(0,0,0,.65),0 0 36px rgba(255,255,255,.25)}
-#dg{position:absolute;top:262px;left:48px;width:1824px;display:flex;flex-wrap:wrap;direction:rtl}
+#dgw{position:absolute;top:252px;left:0;width:1920px;height:690px;overflow:hidden}
+#dg{position:absolute;top:10px;left:48px;width:1824px;display:flex;flex-wrap:wrap;direction:rtl;-webkit-transition:-webkit-transform .2s;transition:transform .2s}
 #dg .qc{width:440px;height:66px;margin:0 8px 14px;font-size:25px}
 #dh{position:absolute;bottom:128px;left:0;right:0;text-align:center;font-size:22px;opacity:.65}
 #wm{position:absolute;left:0;right:0;bottom:8px;text-align:center;direction:ltr;font-family:Roboto,Arial,sans-serif;font-size:20px;letter-spacing:.14em;color:#fff;opacity:.36;z-index:30;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.8)}
@@ -289,7 +290,7 @@ var TILES=[
  {id:'radio',t:'إذاعة القرآن الكريم',s:'من القاهرة - بث مباشر',c:['#b43fcb','#681a8c'],k:'audio',live:1,
   src:['https://stream.radiojar.com/8s5u5tpdtwzuv','http://stream.radiojar.com/8s5u5tpdtwzuv','https://qurango.net/radio/tarateel','https://backup.qurango.net/radio/tarateel','https://backup.qurango.net/radio/mishary_alafasi']},
  {id:'quran',t:'القرآن الكريم',s:'بصوت القراء',c:['#14937f','#0b5560'],k:'quran'},
- {id:'duroos',t:'دروس إسلامية',s:'الشعراوي • طارق سويدان',c:['#c98a2c','#7a4510'],k:'duroos'},
+ {id:'duroos',t:'دروس إسلامية',s:'الشعراوي • العوضي • طارق سويدان',c:['#c98a2c','#7a4510'],k:'duroos'},
  {id:'sab',t:'أذكار الصباح',s:'من حصن المسلم',c:['#f28d4e','#d6552a'],k:'adhkar',set:'morning'},
  {id:'mas',t:'أذكار المساء',s:'من حصن المسلم',c:['#2c66da','#12399a'],k:'adhkar',set:'evening'},
  {id:'ruq',t:'الرقية الشرعية',s:'فيديو',c:['#1d9bc0','#0c5f85'],k:'video',file:'ruqya.mp4'},
@@ -1047,25 +1048,248 @@ function routeQuran(k){
 /* ================= دروس إسلامية ================= */
 /* لإضافة حلقات: أضف عنصراً {t:'العنوان',u:'رابط mp3'} إلى items في سلسلة الشعراوي */
 var DUR=[
- {id:'shaarawi',t:'تفسير القرآن الكريم',who:'الشيخ محمد متولي الشعراوي',k:'audio',unit:'تسجيل صوتي',c:['#c98a2c','#7a4510'],items:[
-   {t:'خواطر الشعراوي — الحلقة الأولى',u:'https://api.spreaker.com/v2/episodes/53363267/download.mp3'},
-   {t:'خواطر الشعراوي — الحلقة الثانية',u:'https://api.spreaker.com/v2/episodes/53363266/download.mp3'},
-   {t:'خواطر الشعراوي — الحلقة الثالثة',u:'https://api.spreaker.com/v2/episodes/53363265/download.mp3'},
-   {t:'تفسير سورة الفاتحة (1)',u:'https://api.spreaker.com/v2/episodes/53363215/download.mp3'},
-   {t:'تفسير سورة الفاتحة (2)',u:'https://api.spreaker.com/v2/episodes/53363216/download.mp3'},
-   {t:'تفسير سورة الفاتحة (3)',u:'https://api.spreaker.com/v2/episodes/53363217/download.mp3'},
-   {t:'البقرة: الآية 1 إلى 3',u:'https://api.spreaker.com/v2/episodes/53349644/download.mp3'},
-   {t:'البقرة: الآية 3 إلى 6',u:'https://api.spreaker.com/v2/episodes/53349647/download.mp3'},
-   {t:'البقرة: الآية 6 إلى 8',u:'https://api.spreaker.com/v2/episodes/53349646/download.mp3'},
-   {t:'البقرة: الآية 8 إلى 22',u:'https://api.spreaker.com/v2/episodes/53349645/download.mp3'}
+ {id:'shaarawi',t:"تفسير القرآن الكريم",who:"الشيخ محمد متولي الشعراوي",k:'audio',unit:'تسجيل صوتي',c:['#c98a2c','#7a4510'],items:[
+   {t:"خواطر - الحلقة 1",u:"https://api.spreaker.com/v2/episodes/53363267/download.mp3"},
+   {t:"خواطر - الحلقة 2",u:"https://api.spreaker.com/v2/episodes/53363266/download.mp3"},
+   {t:"خواطر - الحلقة 3",u:"https://api.spreaker.com/v2/episodes/53363265/download.mp3"},
+   {t:"تفسير سورة الفاتحة 1",u:"https://api.spreaker.com/v2/episodes/53363215/download.mp3"},
+   {t:"تفسير سورة الفاتحة 2",u:"https://api.spreaker.com/v2/episodes/53363216/download.mp3"},
+   {t:"تفسير سورة الفاتحة 3",u:"https://api.spreaker.com/v2/episodes/53363217/download.mp3"},
+   {t:"البقرة 1-3",u:"https://api.spreaker.com/v2/episodes/53349644/download.mp3"},
+   {t:"البقرة 3-6",u:"https://api.spreaker.com/v2/episodes/53349647/download.mp3"},
+   {t:"البقرة 6-8",u:"https://api.spreaker.com/v2/episodes/53349646/download.mp3"},
+   {t:"البقرة 8-22",u:"https://api.spreaker.com/v2/episodes/53349645/download.mp3"},
+   {t:"الشعراوي - 16073",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16073.mp3"},
+   {t:"الشعراوي - 16074",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16074.mp3"},
+   {t:"الشعراوي - 16075",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16075.mp3"},
+   {t:"الشعراوي - 16414",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16414.mp3"},
+   {t:"الشعراوي - 16415",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16415.mp3"},
+   {t:"الشعراوي - 16416",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16416.mp3"},
+   {t:"الشعراوي - 16417",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16417.mp3"},
+   {t:"الشعراوي - 16418",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16418.mp3"},
+   {t:"الشعراوي - 16419",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16419.mp3"},
+   {t:"الشعراوي - 16420",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16420.mp3"},
+   {t:"الشعراوي - 16421",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16421.mp3"},
+   {t:"الشعراوي - 16422",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16422.mp3"},
+   {t:"الشعراوي - 16423",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16423.mp3"},
+   {t:"الشعراوي - 16424",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16424.mp3"},
+   {t:"الشعراوي - 16425",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16425.mp3"},
+   {t:"الشعراوي - 16426",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16426.mp3"},
+   {t:"الشعراوي - 16427",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16427.mp3"},
+   {t:"الشعراوي - 16428",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16428.mp3"},
+   {t:"الشعراوي - 16429",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16429.mp3"},
+   {t:"الشعراوي - 16430",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16430.mp3"},
+   {t:"الشعراوي - 16431",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16431.mp3"},
+   {t:"الشعراوي - 16432",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16432.mp3"},
+   {t:"الشعراوي - 16433",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16433.mp3"},
+   {t:"الشعراوي - 16434",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16434.mp3"},
+   {t:"الشعراوي - 16435",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16435.mp3"},
+   {t:"الشعراوي - 16436",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16436.mp3"},
+   {t:"الشعراوي - 16437",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16437.mp3"},
+   {t:"الشعراوي - 16438",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16438.mp3"},
+   {t:"الشعراوي - 16439",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16439.mp3"},
+   {t:"الشعراوي - 16440",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16440.mp3"},
+   {t:"الشعراوي - 16441",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16441.mp3"},
+   {t:"الشعراوي - 16442",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16442.mp3"},
+   {t:"الشعراوي - 16443",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16443.mp3"},
+   {t:"الشعراوي - 16444",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16444.mp3"},
+   {t:"الشعراوي - 16445",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16445.mp3"},
+   {t:"الشعراوي - 16446",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16446.mp3"},
+   {t:"الشعراوي - 16447",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16447.mp3"},
+   {t:"الشعراوي - 16448",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16448.mp3"},
+   {t:"الشعراوي - 16449",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16449.mp3"},
+   {t:"الشعراوي - 16450",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16450.mp3"},
+   {t:"الشعراوي - 16451",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16451.mp3"},
+   {t:"الشعراوي - 16452",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16452.mp3"},
+   {t:"الشعراوي - 16453",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/16453.mp3"},
+   {t:"الشعراوي - 22566",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/22566.mp3"},
+   {t:"الشعراوي - 22567",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/22567.mp3"},
+   {t:"الشعراوي - 22568",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/22568.mp3"},
+   {t:"الشعراوي - 22569",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/22569.mp3"},
+   {t:"الشعراوي - 22570",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/22570.mp3"},
+   {t:"الشعراوي - 22571",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/22571.mp3"},
+   {t:"الشعراوي - 22572",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/22572.mp3"},
+   {t:"الشعراوي - 427218",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/427218.mp3"},
+   {t:"الشعراوي - 427219",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/427219.mp3"},
+   {t:"الشعراوي - 427220",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A7%D9%84%D8%B4%D8%B9%D8%B1%D8%A7%D9%88%D9%8A/427220.mp3"}
+ ]},
+ {id:'awadi',t:"قصص الأنبياء",who:"الشيخ العوضي",k:'audio',unit:'تسجيل صوتي',c:['#2f8f6b','#145040'],items:[
+   {t:"آدم",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%A2%D8%AF%D9%85.mp3"},
+   {t:"أيوب",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%A3%D9%8A%D9%88%D8%A8.mp3"},
+   {t:"إبراهيم",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%A7%D8%A8%D8%B1%D8%A7%D9%87%D9%8A%D9%85.mp3"},
+   {t:"إدريس",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%A7%D8%AF%D8%B1%D9%8A%D8%B3.mp3"},
+   {t:"الخضر",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%A7%D9%84%D8%AE%D8%B6%D8%B1.mp3"},
+   {t:"داوود",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%AF%D8%A7%D9%88%D9%88%D8%AF.mp3"},
+   {t:"زكريا ويحيى",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%B2%D9%83%D8%B1%D9%8A%D8%A7%20%D9%88%D9%8A%D8%AD%D9%8A%D9%89.mp3"},
+   {t:"سليمان",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%B3%D9%84%D9%8A%D9%85%D8%A7%D9%86.mp3"},
+   {t:"شعيب",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%B4%D8%B9%D9%8A%D8%A8.mp3"},
+   {t:"صالح",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%B5%D8%A7%D9%84%D8%AD.mp3"},
+   {t:"عيسى",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D8%B9%D9%8A%D8%B3%D9%89.mp3"},
+   {t:"قصة يونس",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%82%D8%B5%D8%A9%20%D9%8A%D9%88%D9%86%D8%B3%20.mp3"},
+   {t:"لوط",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%84%D9%88%D8%B7.mp3"},
+   {t:"محمد صلى الله عليه وسلم",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%85%D8%AD%D9%85%D8%AF%20%D8%B5%D9%84%D9%89%20%D8%A7%D9%84%D9%84%D9%87%20%D8%B9%D9%84%D9%8A%D9%87%20%D9%88%D8%B3%D9%84%D9%85.mp3"},
+   {t:"مريم بنت عمران",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%85%D8%B1%D9%8A%D9%85%20%D8%A8%D9%86%D8%AA%20%D8%B9%D9%85%D8%B1%D8%A7%D9%86.mp3"},
+   {t:"موسى",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%85%D9%88%D8%B3%D9%89.mp3"},
+   {t:"هود",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%87%D9%88%D8%AF.mp3"},
+   {t:"يوسف",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%8A%D9%88%D8%B3%D9%81.mp3"},
+   {t:"يوشع بن نون",u:"https://archive.org/download/20261117_20261117_0828/%D8%A7%D9%84%D8%B9%D9%88%D8%B6%D9%8A%20-%D9%8A%D9%88%D8%B4%D8%B9%20%D8%A8%D9%86%20%D9%86%D9%88%D9%86.mp3"}
+ ]},
+ {id:'suwaidan',t:"طارق سويدان",who:"محاضرات ودروس",k:'audio',unit:'تسجيل صوتي',c:['#3b5bc4','#1b2a78'],items:[
+   {t:"عبد الله بن الزبير--.2015- مقدمة",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/--%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%A8%D9%86%20%D8%A7%D9%84%D8%B2%D8%A8%D9%8A%D8%B1--.2015-%20%D9%85%D9%82%D8%AF%D9%85%D8%A9.mp3"},
+   {t:"عبد الله بن الزبير بن العوام",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/01_%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%A8%D9%86%20%D8%A7%D9%84%D8%B2%D8%A8%D9%8A%D8%B1%20%D8%A8%D9%86%20%D8%A7%D9%84%D8%B9%D9%88%D8%A7%D9%85.mp3"},
+   {t:"حياة عبد الله بن الزبير أثناء ولاية عمر",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/02_%D8%AD%D9%8A%D8%A7%D8%A9%20%D8%B9%D8%A8%D8%AF%20%D8%A7%D9%84%D9%84%D9%87%20%D8%A8%D9%86%20%D8%A7%D9%84%D8%B2%D8%A8%D9%8A%D8%B1%20%D8%A3%D8%AB%D9%86%D8%A7%D8%A1%20%D9%88%D9%84%D8%A7%D9%8A%D8%A9%20%D8%B9%D9%85%D8%B1.mp3"},
+   {t:"اشتعال الفتنة فى المدينة",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/03_%D8%A7%D8%B4%D8%AA%D8%B9%D8%A7%D9%84%20%D8%A7%D9%84%D9%81%D8%AA%D9%86%D8%A9%20%D9%81%D9%89%20%D8%A7%D9%84%D9%85%D8%AF%D9%8A%D9%86%D8%A9.mp3"},
+   {t:"مقتل عثمان رضي الله عنه",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/04_%D9%85%D9%82%D8%AA%D9%84%20%D8%B9%D8%AB%D9%85%D8%A7%D9%86%20%D8%B1%D8%B6%D9%8A%20%D8%A7%D9%84%D9%84%D9%87%20%D8%B9%D9%86%D9%87.mp3"},
+   {t:"مبايعة علي رضي الله عنه",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/05_%D9%85%D8%A8%D8%A7%D9%8A%D8%B9%D8%A9%20%D8%B9%D9%84%D9%8A%20%D8%B1%D8%B6%D9%8A%20%D8%A7%D9%84%D9%84%D9%87%20%D8%B9%D9%86%D9%87.mp3"},
+   {t:"اشتعال الفتنة بين الصحابة",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/06_%D8%A7%D8%B4%D8%AA%D8%B9%D8%A7%D9%84%20%D8%A7%D9%84%D9%81%D8%AA%D9%86%D8%A9%20%D8%A8%D9%8A%D9%86%20%D8%A7%D9%84%D8%B5%D8%AD%D8%A7%D8%A8%D8%A9.mp3"},
+   {t:"أحداث البصرة",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/07_%D8%A3%D8%AD%D8%AF%D8%A7%D8%AB%20%D8%A7%D9%84%D8%A8%D8%B5%D8%B1%D8%A9.mp3"},
+   {t:"موقعة الجمل",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/08_%D9%85%D9%88%D9%82%D8%B9%D8%A9%20%D8%A7%D9%84%D8%AC%D9%85%D9%84.mp3"},
+   {t:"موقعة صفين",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/09_%D9%85%D9%88%D9%82%D8%B9%D8%A9%20%D8%B5%D9%81%D9%8A%D9%86.mp3"},
+   {t:"استقرار الأوضاع لمعا وية",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/10_%D8%A7%D8%B3%D8%AA%D9%82%D8%B1%D8%A7%D8%B1%20%D8%A7%D9%84%D8%A3%D9%88%D8%B6%D8%A7%D8%B9%20%D9%84%D9%85%D8%B9%D8%A7%20%D9%88%D9%8A%D8%A9.mp3"},
+   {t:"مقتل الحسين رضي الله عنه",u:"https://archive.org/download/Tareq-Suidan_A7das-Mn-Histiry-Islamic2015/11_%D9%85%D9%82%D8%AA%D9%84%20%D8%A7%D9%84%D8%AD%D8%B3%D9%8A%D9%86%20%D8%B1%D8%B6%D9%8A%20%D8%A7%D9%84%D9%84%D9%87%20%D8%B9%D9%86%D9%87.mp3"},
+   {t:"طارق سويدان - 47735",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47735.mp3"},
+   {t:"طارق سويدان - 47736",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47736.mp3"},
+   {t:"طارق سويدان - 47737",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47737.mp3"},
+   {t:"طارق سويدان - 47738",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47738.mp3"},
+   {t:"طارق سويدان - 47739",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47739.mp3"},
+   {t:"طارق سويدان - 47740",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47740.mp3"},
+   {t:"طارق سويدان - 47741",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47741.mp3"},
+   {t:"طارق سويدان - 47742",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47742.mp3"},
+   {t:"طارق سويدان - 47743",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47743.mp3"},
+   {t:"طارق سويدان - 47744",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%B7%D8%A7%D8%B1%D9%82%20%D8%B3%D9%88%D9%8A%D8%AF%D8%A7%D9%86/47744.mp3"}
+ ]},
+ {id:'nabulsi',t:"محمد راتب النابلسي",who:"دروس ومحاضرات",k:'audio',unit:'تسجيل صوتي',c:['#8a4bb5','#4a1f75'],items:[
+   {t:"محمد راتب النابلسي - 419779",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419779.mp3"},
+   {t:"محمد راتب النابلسي - 419780",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419780.mp3"},
+   {t:"محمد راتب النابلسي - 419781",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419781.mp3"},
+   {t:"محمد راتب النابلسي - 419986",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419986.mp3"},
+   {t:"محمد راتب النابلسي - 419987",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419987.mp3"},
+   {t:"محمد راتب النابلسي - 419988",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419988.mp3"},
+   {t:"محمد راتب النابلسي - 419989",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419989.mp3"},
+   {t:"محمد راتب النابلسي - 419990",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/419990.mp3"},
+   {t:"محمد راتب النابلسي - 422442",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/422442.mp3"},
+   {t:"محمد راتب النابلسي - 422677",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/422677.mp3"},
+   {t:"محمد راتب النابلسي - 429355",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/429355.mp3"},
+   {t:"محمد راتب النابلسي - 429357",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/429357.mp3"},
+   {t:"محمد راتب النابلسي - 429358",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/429358.mp3"},
+   {t:"محمد راتب النابلسي - 429359",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/429359.mp3"},
+   {t:"محمد راتب النابلسي - 434651",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/434651.mp3"},
+   {t:"محمد راتب النابلسي - 435777",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/435777.mp3"},
+   {t:"محمد راتب النابلسي - 456606",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/456606.mp3"},
+   {t:"محمد راتب النابلسي - 456607",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/456607.mp3"},
+   {t:"محمد راتب النابلسي - 456608",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/456608.mp3"},
+   {t:"محمد راتب النابلسي - 458050",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/458050.mp3"},
+   {t:"محمد راتب النابلسي - 459038",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/459038.mp3"},
+   {t:"محمد راتب النابلسي - 616929",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/616929.mp3"},
+   {t:"محمد راتب النابلسي - 631604",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631604.mp3"},
+   {t:"محمد راتب النابلسي - 631605",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631605.mp3"},
+   {t:"محمد راتب النابلسي - 631606",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631606.mp3"},
+   {t:"محمد راتب النابلسي - 631607",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631607.mp3"},
+   {t:"محمد راتب النابلسي - 631608",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631608.mp3"},
+   {t:"محمد راتب النابلسي - 631609",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631609.mp3"},
+   {t:"محمد راتب النابلسي - 631610",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631610.mp3"},
+   {t:"محمد راتب النابلسي - 631611",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631611.mp3"},
+   {t:"محمد راتب النابلسي - 631612",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631612.mp3"},
+   {t:"محمد راتب النابلسي - 631613",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631613.mp3"},
+   {t:"محمد راتب النابلسي - 631614",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631614.mp3"},
+   {t:"محمد راتب النابلسي - 631615",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631615.mp3"},
+   {t:"محمد راتب النابلسي - 631616",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631616.mp3"},
+   {t:"محمد راتب النابلسي - 631617",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631617.mp3"},
+   {t:"محمد راتب النابلسي - 631618",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631618.mp3"},
+   {t:"محمد راتب النابلسي - 631619",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631619.mp3"},
+   {t:"محمد راتب النابلسي - 631620",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631620.mp3"},
+   {t:"محمد راتب النابلسي - 631621",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631621.mp3"},
+   {t:"محمد راتب النابلسي - 631622",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%B1%D8%A7%D8%AA%D8%A8%20%D8%A7%D9%84%D9%86%D8%A7%D8%A8%D9%84%D8%B3%D9%8A/631622.mp3"}
+ ]},
+ {id:'badr',t:"بدر بن مشاري",who:"دروس ومحاضرات",k:'audio',unit:'تسجيل صوتي',c:['#c0504d','#7a1f2a'],items:[
+   {t:"بدر بن مشاري - 10-10-2004",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/10-10-2004.mp3"},
+   {t:"بدر بن مشاري - 318749",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/318749.mp3"},
+   {t:"بدر بن مشاري - 318750",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/318750.mp3"},
+   {t:"بدر بن مشاري - 33576",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/33576.mp3"},
+   {t:"بدر بن مشاري - 404351",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/404351.mp3"},
+   {t:"بدر بن مشاري - 404353",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/404353.mp3"},
+   {t:"بدر بن مشاري - 404354",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/404354.mp3"},
+   {t:"بدر بن مشاري - 404355",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/404355.mp3"},
+   {t:"بدر بن مشاري - 418558",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418558.mp3"},
+   {t:"بدر بن مشاري - 418560",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418560.mp3"},
+   {t:"بدر بن مشاري - 418561",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418561.mp3"},
+   {t:"بدر بن مشاري - 418587",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418587.mp3"},
+   {t:"بدر بن مشاري - 418588",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418588.mp3"},
+   {t:"بدر بن مشاري - 418589",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418589.mp3"},
+   {t:"بدر بن مشاري - 418590",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418590.mp3"},
+   {t:"بدر بن مشاري - 418592",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418592.mp3"},
+   {t:"بدر بن مشاري - 418593",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418593.mp3"},
+   {t:"بدر بن مشاري - 418596",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418596.mp3"},
+   {t:"بدر بن مشاري - 418598",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418598.mp3"},
+   {t:"بدر بن مشاري - 418609",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/418609.mp3"},
+   {t:"بدر بن مشاري - 44377",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/44377.mp3"},
+   {t:"بدر بن مشاري - 6011",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/6011.mp3"},
+   {t:"بدر بن مشاري - 613177",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/613177.mp3"},
+   {t:"بدر بن مشاري - 6337",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/6337.mp3"},
+   {t:"بدر بن مشاري - 9012",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/9012.mp3"},
+   {t:"بدر بن مشاري - 9065",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D8%A8%D8%AF%D8%B1%20%D8%A8%D9%86%20%D9%85%D8%B4%D8%A7%D8%B1%D9%8A/9065.mp3"}
+ ]},
+ {id:'rashed',t:"خالد الراشد",who:"دروس ومحاضرات",k:'audio',unit:'تسجيل صوتي',c:['#1d9bc0','#0c5f85'],items:[
+   {t:"خالد الراشد - 1",u:"https://archive.org/download/kalrashed/01.mp3"},
+   {t:"خالد الراشد - 2",u:"https://archive.org/download/kalrashed/02.mp3"},
+   {t:"خالد الراشد - 3",u:"https://archive.org/download/kalrashed/03.mp3"},
+   {t:"خالد الراشد - 4",u:"https://archive.org/download/kalrashed/04.mp3"},
+   {t:"خالد الراشد - 5",u:"https://archive.org/download/kalrashed/05.mp3"},
+   {t:"خالد الراشد - 6",u:"https://archive.org/download/kalrashed/06.mp3"},
+   {t:"خالد الراشد - 7",u:"https://archive.org/download/kalrashed/07.mp3"},
+   {t:"خالد الراشد - 8",u:"https://archive.org/download/kalrashed/08.mp3"},
+   {t:"خالد الراشد - 9",u:"https://archive.org/download/kalrashed/09.mp3"},
+   {t:"خالد الراشد - 10",u:"https://archive.org/download/kalrashed/10.mp3"},
+   {t:"خالد الراشد - 100",u:"https://archive.org/download/kalrashed/100.mp3"},
+   {t:"خالد الراشد - 101",u:"https://archive.org/download/kalrashed/101.mp3"},
+   {t:"خالد الراشد - 102",u:"https://archive.org/download/kalrashed/102.mp3"},
+   {t:"خالد الراشد - 103",u:"https://archive.org/download/kalrashed/103.mp3"},
+   {t:"خالد الراشد - 104",u:"https://archive.org/download/kalrashed/104.mp3"},
+   {t:"خالد الراشد - 105",u:"https://archive.org/download/kalrashed/105.mp3"},
+   {t:"خالد الراشد - 106",u:"https://archive.org/download/kalrashed/106.mp3"},
+   {t:"خالد الراشد - 107",u:"https://archive.org/download/kalrashed/107.mp3"},
+   {t:"خالد الراشد - 108",u:"https://archive.org/download/kalrashed/108.mp3"},
+   {t:"خالد الراشد - 109",u:"https://archive.org/download/kalrashed/109.mp3"},
+   {t:"خالد الراشد - 11",u:"https://archive.org/download/kalrashed/11.mp3"},
+   {t:"خالد الراشد - 110",u:"https://archive.org/download/kalrashed/110.mp3"},
+   {t:"خالد الراشد - 111",u:"https://archive.org/download/kalrashed/111.mp3"},
+   {t:"خالد الراشد - 112",u:"https://archive.org/download/kalrashed/112.mp3"},
+   {t:"خالد الراشد - 113",u:"https://archive.org/download/kalrashed/113.mp3"},
+   {t:"خالد الراشد - 114",u:"https://archive.org/download/kalrashed/114.mp3"},
+   {t:"خالد الراشد - 115",u:"https://archive.org/download/kalrashed/115.mp3"},
+   {t:"خالد الراشد - 116",u:"https://archive.org/download/kalrashed/116.mp3"},
+   {t:"خالد الراشد - 117",u:"https://archive.org/download/kalrashed/117.mp3"},
+   {t:"خالد الراشد - 118",u:"https://archive.org/download/kalrashed/118.mp3"},
+   {t:"خالد الراشد - 119",u:"https://archive.org/download/kalrashed/119.mp3"},
+   {t:"خالد الراشد - 12",u:"https://archive.org/download/kalrashed/12.mp3"},
+   {t:"خالد الراشد - 120",u:"https://archive.org/download/kalrashed/120.mp3"},
+   {t:"خالد الراشد - 121",u:"https://archive.org/download/kalrashed/121.mp3"}
+ ]},
+ {id:'yaqoub',t:"محمد حسين يعقوب",who:"دروس ومحاضرات",k:'audio',unit:'تسجيل صوتي',c:['#b8862b','#6b4a10'],items:[
+   {t:"محمد حسين يعقوب - 12684",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%AD%D8%B3%D9%8A%D9%86%20%D9%8A%D8%B9%D9%82%D9%88%D8%A8/12684.mp3"},
+   {t:"محمد حسين يعقوب - 12685",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%AD%D8%B3%D9%8A%D9%86%20%D9%8A%D8%B9%D9%82%D9%88%D8%A8/12685.mp3"},
+   {t:"محمد حسين يعقوب - 12686",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%AD%D8%B3%D9%8A%D9%86%20%D9%8A%D8%B9%D9%82%D9%88%D8%A8/12686.mp3"},
+   {t:"محمد حسين يعقوب - 12687",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%AD%D8%B3%D9%8A%D9%86%20%D9%8A%D8%B9%D9%82%D9%88%D8%A8/12687.mp3"},
+   {t:"محمد حسين يعقوب - 12688",u:"https://archive.org/download/albumaty.-com-meshari-rashed-almustafa/downloads/%D9%85%D8%AD%D9%85%D8%AF%20%D8%AD%D8%B3%D9%8A%D9%86%20%D9%8A%D8%B9%D9%82%D9%88%D8%A8/12688.mp3"}
+ ]},
+ {id:'ruqya',t:"الرقية الشرعية",who:"نخبة من القراء",k:'audio',unit:'تسجيل صوتي',c:['#2c8a8f','#0d4f58'],items:[
+   {t:"الرقية الشرعية كاملة - الشيخ إدريس أبكر",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Al%20Ruqyah%20Al%20Shariah%20Full%20by%20Sheikh%20Idrees%20Abkar.mp3"},
+   {t:"آيات سكينة - الأنعام 13",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20En%27am%2013.mp3"},
+   {t:"آيات سكينة - الأنعام 96",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20En%27am%2096.mp3"},
+   {t:"آيات سكينة - الرعد 28",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20ar-rad%2028.mp3"},
+   {t:"آيات سكينة - الفتح 4",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20fet%27h%204.mp3"},
+   {t:"آيات سكينة - فصلت 44",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20fusilet%2044.mp3"},
+   {t:"آيات سكينة - الإسراء 82",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20isra%2082.mp3"},
+   {t:"آيات سكينة - يونس 67",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20junus%2067.mp3"},
+   {t:"آيات سكينة - الشعراء 80",u:"https://archive.org/download/RuqyahShariahRuqyaTreatment/Ayat%20sakinah%20-%20shuara%2080.mp3"}
  ]},
  {id:'end',t:'قصة النهاية',who:'الدكتور طارق السويدان — أحداث النهاية',k:'video',unit:'حلقة مرئية',c:['#3b5bc4','#1b2a78'],items:[]}
 ];
 (function(){
   var E=[['1','158-1467-01-al-hlqt-al-awla'],['2','158-1466-02-al-hlqt-ath-thanyh'],['3','158-1465-03-al-hlqt-ath-thalthh'],['4','158-1464-04-al-hlqt-ar-r-rab-h'],['6','158-1463-06-al-hlqt-as-sads-h'],['7','158-1462-07-al-hlqt-as-s-sab-h'],['8','158-1461-08-al-hlqt-ath-th-hamnh'],['9','158-1460-09-al-hlqt-at-tas-h'],['10','158-1459-10-al-hlqt-al-ashrh'],['11','158-1458-11-al-hlqt-al-hadyt-ashrh'],['12','158-1457-12-al-hlqt-ath-thanyt-ashrh'],['13','158-1456-13-al-hlqt-ath-thaltht-ashrh'],['14','158-1455-14-al-hlqt-ar-rab-t-ashrh'],['15','158-1454-15-al-hlqt-al-khamst-ashrh'],['16','158-1453-16-al-hlqt-as-sadst-ashrh'],['17','158-1452-17-al-hlqt-as-sab-t-ashrh'],['18','158-1451-18-al-hlqt-ath-thamnt-ashrh'],['19','158-1450-19-al-hlqt-at-tas-t-ashrh'],['20','158-1449-20-al-hlqt-al-shrwn'],['21','158-1448-21-al-hlqt-al-wahdt-wal-shrwn'],['22','158-1447-22-al-hlqt-ath-thanyt-wal-shrwn'],['23','158-1446-23-al-hlqt-ath-thaltht-wal-shrwn'],['24','158-1445-24-al-hlqt-ar-rab-t-wal-shrwn'],['25','158-1444-25-al-hlqt-al-khamst-wal-shrwn'],['26','158-1443-26-al-hlqt-as-sadst-wal-shrwn'],['27','158-1442-27-al-hlqt-as-sab-t-wal-shrwn'],['28','158-1382-28-al-hlqt-ath-thamnt-wal-shrwn']],i,b='https://media.assabile.com/assabile/lessons_8234632432/mp4/tareq-al-suwaidan/';
-  for(i=0;i<E.length;i++){DUR[1].items.push({n:E[i][0],t:'قصة النهاية — الحلقة '+E[i][0],u:b+E[i][1]+'.mp4'});}
+  for(i=0;i<E.length;i++){DUR[DUR.length-1].items.push({n:E[i][0],t:'قصة النهاية — الحلقة '+E[i][0],u:b+E[i][1]+'.mp4'});}
 })();
-var dv='menu',di=0,dsel=0,dSig='',dCur=null,vRet=0;
+var dRow=0,dv='menu',di=0,dsel=0,dSig='',dCur=null,vRet=0;
 function dIsD(){return !!(A&&A_id&&A_id.indexOf('d_')===0);}
 function dNow(){return dIsD()&&A_state==='playing'&&!!A_t;}
 function openDuroos(view,sel){
@@ -1082,9 +1306,9 @@ function openDuroos(view,sel){
     h+='</div>';
   }else{
     d=DUR[dsel];n=d.items.length;
-    h+='<div id="qRw"><div id="qR">'+d.who+'</div></div><div id="dg">';
+    h+='<div id="qRw"><div id="qR">'+d.who+'</div></div><div id="dgw"><div id="dg">';
     for(i=0;i<n;i++){h+='<div class="qc" id="di'+i+'"><span class="qn">'+d.items[i].t+'</span><span class="qb">'+(d.items[i].n||(i+1))+'</span></div>';}
-    h+='</div><div id="qbar"><div id="qbT"></div><div id="qbB"><i id="qbF"></i></div><div id="qbM"></div></div>';
+    h+='</div></div><div id="qbar"><div id="qbT"></div><div id="qbB"><i id="qbF"></i></div><div id="qbM"></div></div>';
   }
   frame(h);
   $('qbg').innerHTML=qScene();
@@ -1092,6 +1316,7 @@ function openDuroos(view,sel){
     for(i=0;i<DUR.length;i++){(function(j){$('dc'+j).onclick=function(){dsel=j;openDuroos('list',j);};})(i);}
   }else{
     if(di>=n){di=0;}
+    dRow=Math.max(0,Math.floor(di/4)-3);
     for(i=0;i<n;i++){(function(j){$('di'+j).onclick=function(){di=j;dPlay(j);dPaint();};})(i);}
   }
   dSig='';qTop();dPaint();updDBar();
@@ -1106,6 +1331,9 @@ function dPaint(){
     return;
   }
   n=DUR[dsel].items.length;
+  var rw=Math.floor(di/4),g=$('dg');
+  if(rw<dRow){dRow=rw;}else if(rw>dRow+7){dRow=rw-7;}
+  if(g){g.style.webkitTransform=g.style.transform='translateY('+(-dRow*80)+'px)';}
   var pi=dPlayIdx(),pz=(A_state!=='playing');
   for(i=0;i<n;i++){
     e=$('di'+i);if(!e)return;
@@ -1152,6 +1380,9 @@ function routeDuroos(k){
     else if(k==='ok'){di=0;openDuroos('list',dsel);}
     else if(k==='right'&&dsel>0){dsel--;dPaint();}
     else if(k==='left'&&dsel<DUR.length-1){dsel++;dPaint();}
+    else if(k==='up'&&dsel>=3){dsel-=3;dPaint();}
+    else if(k==='down'&&dsel+3<DUR.length){dsel+=3;dPaint();}
+    else if(k==='down'&&Math.floor(dsel/3)<Math.floor((DUR.length-1)/3)){dsel=DUR.length-1;dPaint();}
     return;
   }
   n=DUR[dsel].items.length;
@@ -1213,6 +1444,7 @@ function tick(){
     dayKey=key;
     var c=city();
     tms=calcTimes(c,p.y,p.m,p.d,CFG.adj);
+    try{if(window.AndroidBridge){AndroidBridge.scheduleAdhans(JSON.stringify({fajr:tms.fajr,dhuhr:tms.dhuhr,asr:tms.asr,maghrib:tms.maghrib,isha:tms.isha}));}}catch(e){}
     var nd=new Date(Date.UTC(p.y,p.m,p.d+1));
     tmsN=calcTimes(c,nd.getUTCFullYear(),nd.getUTCMonth(),nd.getUTCDate(),CFG.adj);
     var hj=hijri(p.y,p.m,p.d,S.hj);
@@ -1245,9 +1477,8 @@ function triggerAdhan(name){
   if(V&&!V.paused){try{V.pause();}catch(e){}}
   if(S.sound){
     try{
-      if(!adhanAudio){adhanAudio=new Audio(CFG.adhanFile);}
-      adhanAudio.currentTime=0;
-      var pr=adhanAudio.play();if(pr&&pr.catch){pr.catch(function(){});}
+      if(window.AndroidBridge){AndroidBridge.showAdhanOverlay(name);AndroidBridge.playAdhanAudio();}
+      else{if(!adhanAudio){adhanAudio=new Audio(CFG.adhanFile);} adhanAudio.currentTime=0; var pr=adhanAudio.play();if(pr&&pr.catch){pr.catch(function(){});}}
     }catch(e){}
   }
   if(adhanTimer){clearTimeout(adhanTimer);}
@@ -1255,7 +1486,7 @@ function triggerAdhan(name){
 }
 function hideAdhan(){
   adhanOn=false;$('adhan').className='';
-  try{if(adhanAudio){adhanAudio.pause();}}catch(e){}
+  try{if(window.AndroidBridge){AndroidBridge.hideAdhanOverlay();AndroidBridge.stopAdhanAudio();} if(adhanAudio){adhanAudio.pause();}}catch(e){}
 }
 $('adhan').onclick=hideAdhan;
 
