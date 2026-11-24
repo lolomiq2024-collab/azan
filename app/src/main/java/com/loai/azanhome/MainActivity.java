@@ -1,6 +1,8 @@
 package com.loai.azanhome;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.KeyEvent;
@@ -8,6 +10,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -15,9 +18,13 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
+import java.util.List;
+
 /**
  * Azan Home — يعرض الصفحة المدمجة (assets/index.html) بملء الشاشة.
  * بث IPTV/HLS يُشغَّل عبر ExoPlayer (Media3) خلف الـ WebView الشفاف.
+ * زر الرجوع وزر Home لا يُخرجان من التطبيق (وضع كشك)،
+ * والخروج للانشر الأصلي للشاشة يتم فقط من إعدادات التطبيق (العودة إلى الشاشة).
  * By Loai.miqdadi
  */
 public class MainActivity extends Activity {
@@ -25,6 +32,17 @@ public class MainActivity extends Activity {
     private static final String START_URL = "file:///android_asset/index.html";
     private WebView web;
     private ExoBridge exo;
+
+    /** جسر بين الصفحة والتطبيق: يُعرَّف في الصفحة باسم window.HomeBridge. */
+    public class HomeBridge {
+        /** يفتح لانشر الشاشة الأصلي (أول لانشر في الجهاز غير هذا التطبيق). */
+        @JavascriptInterface
+        public void exitToLauncher() {
+            runOnUiThread(new Runnable() {
+                @Override public void run() { openOtherHome(); }
+            });
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +86,7 @@ public class MainActivity extends Activity {
         s.setTextZoom(100);
 
         web.addJavascriptInterface(exo, "ExoBridge");
+        web.addJavascriptInterface(new HomeBridge(), "HomeBridge");
 
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
@@ -89,6 +108,27 @@ public class MainActivity extends Activity {
 
         web.loadUrl(START_URL);
         web.requestFocus();
+    }
+
+    /** يفتح أول لانشر في الجهاز غير هذا التطبيق. إن لم يوجد يبقى التطبيق ظاهراً. */
+    private void openOtherHome() {
+        try {
+            Intent probe = new Intent(Intent.ACTION_MAIN);
+            probe.addCategory(Intent.CATEGORY_HOME);
+            List<ResolveInfo> list = getPackageManager().queryIntentActivities(probe, 0);
+            for (ResolveInfo ri : list) {
+                if (ri.activityInfo == null || getPackageName().equals(ri.activityInfo.packageName)) {
+                    continue;
+                }
+                Intent go = new Intent(Intent.ACTION_MAIN);
+                go.addCategory(Intent.CATEGORY_HOME);
+                go.setClassName(ri.activityInfo.packageName, ri.activityInfo.name);
+                go.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(go);
+                return;
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void immersive() {
@@ -126,7 +166,7 @@ public class MainActivity extends Activity {
         super.onStop();
     }
 
-    /** زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). للخروج استخدم زر الرئيسية. */
+    /** زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). */
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
