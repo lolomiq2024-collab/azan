@@ -867,12 +867,14 @@ function closeVideo(){
 /* الإعدادات */
 function bgIds(){var a=['auto'],i;for(i=0;i<scenes.length;i++){a.push(scenes[i].id);}return a;}
 function bgName(id){if(id==='auto')return 'تلقائي (تتبدل)';var i;for(i=0;i<scenes.length;i++){if(scenes[i].id===id){return scenes[i].name;}}return 'تلقائي (تتبدل)';}
+function exitToLauncher(){try{if(window.HomeBridge){window.HomeBridge.exitToLauncher();}}catch(e){}}
 var SROWS=[
  {l:'المدينة',v:function(){return city().n;},ch:function(d){S.city=(S.city+d+CITIES.length)%CITIES.length;dayKey='';wx=null;paintWx();loadWx();}},
  {l:'صوت الأذان',v:function(){return S.sound?'مفعّل':'متوقف';},ch:function(){S.sound=S.sound?0:1;paintBell();}},
  {l:'الخلفية',v:function(){return bgName(S.bg);},ch:function(d){var a=bgIds(),i=a.indexOf(S.bg);if(i<0)i=0;S.bg=a[(i+d+a.length)%a.length];showScene(S.bg==='auto'?scenes[curScene].id:S.bg);}},
  {l:'لغة التحية والتاريخ',v:function(){return S.lang==='en'?'English':'العربية';},ch:function(){S.lang=S.lang==='en'?'ar':'en';dayKey='';paintHome();}},
  {l:'تعديل التاريخ الهجري',v:function(){return S.hj>0?'+'+S.hj+' يوم':(S.hj<0?S.hj+' يوم':'بدون تعديل');},ch:function(d){S.hj=Math.max(-2,Math.min(2,S.hj+d));dayKey='';}},
+ {l:'العودة إلى الشاشة',v:function(){return 'اضغط موافق';},ch:function(){back();exitToLauncher();},act:1},
  {l:'تجربة الأذان',v:function(){return 'اضغط موافق';},ch:function(){back();triggerAdhan('الظهر');},act:1},
  {l:'إغلاق',v:function(){return '';},ch:function(){back();},act:1}
 ];
