@@ -14,25 +14,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
-import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
-import okhttp3.OkHttpClient;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
-import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
-import androidx.media3.datasource.okhttp.OkHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -43,31 +30,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
  * الفيديو يُرسم على SurfaceView خلف الـ WebView الشفاف.
  */
 public class ExoBridge {
-
-    private static final String UA = "Mozilla/5.0 (Linux; Android) AzanHome/1.0";
-
-    /**
-     * الشاشات القديمة (أندرويد 5 وما شابه) لا تحمل الشهادات الحديثة فيفشل الاتصال بمواقع البث.
-     * true = لا يُتحقق من شهادة الخادم لروابط البث وقائمة القنوات فقط (لا تُستخدم لأي شيء آخر).
-     * اجعلها false لإعادة التحقق الكامل.
-     */
-    private static final boolean RELAXED_TLS = true;
-
-    private static final X509TrustManager TRUST_ALL = new X509TrustManager() {
-        @Override public void checkClientTrusted(X509Certificate[] c, String a) { }
-        @Override public void checkServerTrusted(X509Certificate[] c, String a) { }
-        @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-    };
-
-    private static SSLSocketFactory relaxedSF() {
-        try {
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, new TrustManager[]{TRUST_ALL}, new SecureRandom());
-            return sc.getSocketFactory();
-        } catch (Exception e) {
-            return null;
-        }
-    }
 
     private final Activity act;
     private final SurfaceView surface;
@@ -114,32 +76,18 @@ public class ExoBridge {
 
     private void ensure() {
         if (player != null) return;
-        DataSource.Factory http;
-        SSLSocketFactory sf = RELAXED_TLS ? relaxedSF() : null;
-        if (sf != null) {
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .sslSocketFactory(sf, TRUST_ALL)
-                    .hostnameVerifier((h, ss) -> true)
-                    .followRedirects(true)
-                    .followSslRedirects(true)
-                    .connectTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(15, TimeUnit.SECONDS)
-                    .build();
-            http = new OkHttpDataSource.Factory(client).setUserAgent(UA);
-        } else {
-            http = new DefaultHttpDataSource.Factory()
-                    .setAllowCrossProtocolRedirects(true)
-                    .setConnectTimeoutMs(15000)
-                    .setReadTimeoutMs(15000)
-                    .setUserAgent(UA);
-        }
+        DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(15000)
+                .setUserAgent("Mozilla/5.0 (Linux; Android) AzanHome/1.0");
         player = new ExoPlayer.Builder(act,
                 new DefaultRenderersFactory(act).setEnableDecoderFallback(true))
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(http))
                 .setLoadControl(new DefaultLoadControl.Builder()
-                        .setBufferDurationsMs(30000, 90000, 3000, 6000)
-                        .setTargetBufferBytes(48 * 1024 * 1024)
-                        .setPrioritizeTimeOverSizeThresholds(true)
+                        .setBufferDurationsMs(20000, 40000, 2500, 5000)
+                        .setTargetBufferBytes(16 * 1024 * 1024)
+                        .setPrioritizeTimeOverSizeThresholds(false)
                         .build())
                 .build();
         player.setVideoSurfaceView(surface);
@@ -178,13 +126,6 @@ public class ExoBridge {
                     c.setConnectTimeout(20000);
                     c.setReadTimeout(40000);
                     c.setInstanceFollowRedirects(false);
-                    if (RELAXED_TLS && c instanceof HttpsURLConnection) {
-                        SSLSocketFactory f = relaxedSF();
-                        if (f != null) {
-                            ((HttpsURLConnection) c).setSSLSocketFactory(f);
-                            ((HttpsURLConnection) c).setHostnameVerifier((h, ss) -> true);
-                        }
-                    }
                     c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AzanHome/1.0");
                     code = c.getResponseCode();
                     if (code >= 300 && code < 400 && c.getHeaderField("Location") != null) {

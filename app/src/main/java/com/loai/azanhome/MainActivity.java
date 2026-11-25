@@ -1,48 +1,24 @@
 package com.loai.azanhome;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.content.pm.ResolveInfo;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.view.KeyEvent;
-import android.view.SurfaceView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.FrameLayout;
-
-import java.util.List;
 
 /**
  * Azan Home — يعرض الصفحة المدمجة (assets/index.html) بملء الشاشة.
- * بث IPTV/HLS يُشغَّل عبر ExoPlayer (Media3) خلف الـ WebView الشفاف.
- * زر الرجوع وزر Home لا يُخرجان من التطبيق (وضع كشك)،
- * والخروج للانشر الأصلي للشاشة يتم فقط من إعدادات التطبيق (العودة إلى الشاشة).
  * By Loai.miqdadi
  */
 public class MainActivity extends Activity {
 
     private static final String START_URL = "file:///android_asset/index.html";
     private WebView web;
-    private ExoBridge exo;
-
-    /** جسر بين الصفحة والتطبيق: يُعرَّف في الصفحة باسم window.HomeBridge. */
-    public class HomeBridge {
-        /** يفتح لانشر الشاشة الأصلي (أول لانشر في الجهاز غير هذا التطبيق). */
-        @JavascriptInterface
-        public void exitToLauncher() {
-            runOnUiThread(new Runnable() {
-                @Override public void run() { openOtherHome(); }
-            });
-        }
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,27 +26,11 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xFF050A18);
-
-        // طبقة الفيديو (فوق الصفحة)
-        SurfaceView surface = new SurfaceView(this);
-        surface.setZOrderOnTop(true);      // الفيديو فوق الصفحة (أضمن على أجهزة التلفاز)
-        surface.setFocusable(false);       // يبقى التحكم بالريموت للصفحة
-        surface.setVisibility(View.GONE);
-        root.addView(surface, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
         web = new WebView(this);
-        web.setBackgroundColor(Color.TRANSPARENT);   // شفاف كي يظهر الفيديو من خلفه عند التشغيل
+        web.setBackgroundColor(0xFF050A18);
         web.setFocusable(true);
         web.setFocusableInTouchMode(true);
-        root.addView(web, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        setContentView(root);
-
-        exo = new ExoBridge(this, root, surface);
-        exo.setWeb(web);
+        setContentView(web);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -85,9 +45,6 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setTextZoom(100);
 
-        web.addJavascriptInterface(exo, "ExoBridge");
-        web.addJavascriptInterface(new HomeBridge(), "HomeBridge");
-
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -95,40 +52,10 @@ public class MainActivity extends Activity {
                 recreate();   // إن انهارت عملية العرض نعيد التشغيل بدل الإغلاق
                 return true;
             }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                // إخفاء عنصر <video> القديم كي يظهر فيديو ExoPlayer من خلف الصفحة
-                view.evaluateJavascript(
-                        "(function(){var s=document.createElement('style');"
-                                + "s.textContent='html.exo #vid{display:none!important}';"
-                                + "document.head.appendChild(s);})();", null);
-            }
         });
 
         web.loadUrl(START_URL);
         web.requestFocus();
-    }
-
-    /** يفتح أول لانشر في الجهاز غير هذا التطبيق. إن لم يوجد يبقى التطبيق ظاهراً. */
-    private void openOtherHome() {
-        try {
-            Intent probe = new Intent(Intent.ACTION_MAIN);
-            probe.addCategory(Intent.CATEGORY_HOME);
-            List<ResolveInfo> list = getPackageManager().queryIntentActivities(probe, 0);
-            for (ResolveInfo ri : list) {
-                if (ri.activityInfo == null || getPackageName().equals(ri.activityInfo.packageName)) {
-                    continue;
-                }
-                Intent go = new Intent(Intent.ACTION_MAIN);
-                go.addCategory(Intent.CATEGORY_HOME);
-                go.setClassName(ri.activityInfo.packageName, ri.activityInfo.name);
-                go.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(go);
-                return;
-            }
-        } catch (Exception ignored) {
-        }
     }
 
     private void immersive() {
@@ -158,15 +85,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override
-    protected void onStop() {
-        if (exo != null) {
-            exo.pauseIfPlaying();
-        }
-        super.onStop();
-    }
-
-    /** زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). */
+    /** زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). للخروج استخدم زر الرئيسية. */
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
@@ -187,10 +106,6 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (exo != null) {
-            exo.release();
-            exo = null;
-        }
         if (web != null) {
             web.destroy();
             web = null;
