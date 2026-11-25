@@ -1,10 +1,16 @@
 package com.loai.azanhome;
 
 import android.app.Activity;
+import android.app.role.RoleManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.SurfaceView;
 import android.view.View;
@@ -17,7 +23,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
+import java.io.File;
 import java.util.List;
 
 /**
@@ -32,6 +40,10 @@ public class MainActivity extends Activity {
     private static final String START_URL = "file:///android_asset/index.html";
     private WebView web;
     private ExoBridge exo;
+    private static final int REQ_PLAYER = 10;
+    private static final int REQ_HOME_ROLE = 11;
+    private boolean playerOpen = false;
+    private long roleAskedAt = 0;
 
     /** جسر بين الصفحة والتطبيق: يُعرَّف في الصفحة باسم window.HomeBridge. */
     public class HomeBridge {
@@ -41,6 +53,38 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override public void run() { openOtherHome(); }
             });
+        }
+
+        /** يشغّل قناة بث مباشر في المشغّل المستقل. urlsJson: مصفوفة روابط. */
+        @JavascriptInterface
+        public void playLive(final String title, final String urlsJson) {
+            runOnUiThread(() -> openPlayer(title, urlsJson));
+        }
+
+        /** يغلق المشغّل (مثلاً عند الأذان). */
+        @JavascriptInterface
+        public void stopVideo() {
+            runOnUiThread(() -> { if (playerOpen) finishActivity(REQ_PLAYER); });
+        }
+
+        @JavascriptInterface
+        public boolean isDefaultLauncher() {
+            return isDefaultHome();
+        }
+
+        @JavascriptInterface
+        public void setAsLauncher() {
+            runOnUiThread(() -> requestDefaultHome());
+        }
+
+        @JavascriptInterface
+        public boolean canStartOnBoot() {
+            return Build.VERSION.SDK_INT < 29 || Settings.canDrawOverlays(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void allowStartOnBoot() {
+            runOnUiThread(() -> requestOverlayPermission());
         }
     }
 
@@ -92,6 +136,12 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                // يجب إزالة الـ WebView الميت وتدميره قبل إعادة التشغيل
+                if (view.getParent() instanceof ViewGroup) {
+                    ((ViewGroup) view.getParent()).removeView(view);
+                }
+                view.destroy();
+                web = null;
                 recreate();   // إن انهارت عملية العرض نعيد التشغيل بدل الإغلاق
                 return true;
             }
@@ -120,6 +170,9 @@ public class MainActivity extends Activity {
                 if (ri.activityInfo == null || getPackageName().equals(ri.activityInfo.packageName)) {
                     continue;
                 }
+                if ("com.android.settings".equals(ri.activityInfo.packageName)) {
+                    continue;   // شاشة احتياطية للنظام وليست لانشر
+                }
                 Intent go = new Intent(Intent.ACTION_MAIN);
                 go.addCategory(Intent.CATEGORY_HOME);
                 go.setClassName(ri.activityInfo.packageName, ri.activityInfo.name);
@@ -129,6 +182,99 @@ public class MainActivity extends Activity {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    private void openPlayer(String title, String urlsJson) {
+        if (playerOpen) return;
+        Intent i = new Intent(this, PlayerActivity.class);
+        i.putExtra(PlayerActivity.EXTRA_TITLE, title);
+        i.putExtra(PlayerActivity.EXTRA_URLS, urlsJson);
+        try {
+            startActivityForResult(i, REQ_PLAYER);
+            playerOpen = true;
+        } catch (Exception e) {
+            toast("تعذّر فتح المشغّل");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_PLAYER) {
+            if (resultCode == PlayerActivity.RESULT_USE_WEB) {
+                js("if(window.nativeVideoFallback){nativeVideoFallback();}");
+            }
+        } else if (requestCode == REQ_HOME_ROLE) {
+            // بعض الأجهزة ترفض الطلب فوراً دون عرض أي نافذة: نفتح الإعدادات
+            if (!isDefaultHome() && SystemClock.elapsedRealtime() - roleAskedAt < 1000) {
+                openHomeSettings();
+            }
+        }
+    }
+
+    private boolean isDefaultHome() {
+        Intent probe = new Intent(Intent.ACTION_MAIN);
+        probe.addCategory(Intent.CATEGORY_HOME);
+        ResolveInfo ri = getPackageManager()
+                .resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY);
+        return ri != null && ri.activityInfo != null
+                && getPackageName().equals(ri.activityInfo.packageName);
+    }
+
+    /** يطلب من النظام جعل التطبيق هو الشاشة الرئيسية. */
+    private void requestDefaultHome() {
+        if (isDefaultHome()) {
+            toast("التطبيق هو اللانشر الرئيسي بالفعل");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                RoleManager rm = (RoleManager) getSystemService(ROLE_SERVICE);
+                if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME)
+                        && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
+                    roleAskedAt = SystemClock.elapsedRealtime();
+                    startActivityForResult(
+                            rm.createRequestRoleIntent(RoleManager.ROLE_HOME), REQ_HOME_ROLE);
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        openHomeSettings();
+    }
+
+    private void openHomeSettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
+        } catch (Exception e) {
+            toast("هذا الجهاز لا يسمح بتغيير اللانشر من الإعدادات");
+        }
+    }
+
+    /** إذن "العرض فوق التطبيقات" اللازم للتشغيل عند الإقلاع على أندرويد 10 فما فوق. */
+    private void requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(this)) {
+            toast("الإذن مفعّل");
+            return;
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName())));
+        } catch (Exception e) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
+            } catch (Exception e2) {
+                toast("فعّل الإذن من: الإعدادات ▸ التطبيقات ▸ العرض فوق التطبيقات");
+            }
+        }
+    }
+
+    private void toast(String text) {
+        Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+    }
+
+    private void js(String code) {
+        if (web != null) web.evaluateJavascript(code, null);
     }
 
     private void immersive() {
@@ -156,6 +302,16 @@ public class MainActivity extends Activity {
         if (web != null) {
             web.onResume();
         }
+        // العودة من المشغّل. لا نعتمد على onActivityResult: لا يصل دائماً إن ماتت العملية
+        if (playerOpen) {
+            playerOpen = false;
+            // بقاء العلامة يعني أن المشغّل انهار (ويقرأها هو في المرة القادمة)
+            if (new File(getFilesDir(), PlayerActivity.CRASH_MARKER).exists()) {
+                toast("تعذّر تشغيل هذه القناة على الجهاز، حاول مرة أخرى لتجربة رابط آخر");
+            }
+        }
+        // تحديث حالة صفوف الإعدادات بعد العودة من إعدادات النظام
+        js("if(typeof scr!=='undefined'&&scr==='settings'){renderSettings();}");
     }
 
     @Override

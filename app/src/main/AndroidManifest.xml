@@ -52,6 +52,14 @@
             </intent-filter>
         </activity>
 
+        <!-- مشغّل البث المباشر في عملية مستقلة: انهياره لا يُسقط اللانشر -->
+        <activity
+            android:name=".PlayerActivity"
+            android:exported="false"
+            android:process=":player"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density" />
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">

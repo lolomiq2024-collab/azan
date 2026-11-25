@@ -85,7 +85,7 @@ body{font-family:Tajawal,Cairo,"Droid Arabic Naskh","Noto Naskh Arabic",Roboto,A
 
 .stw{position:absolute;top:50%;left:50%;width:1190.4px;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%)}
 #stH{font-size:47.52px;color:#f3d98b;text-align:center;margin-bottom:32.4px}
-.sr{display:flex;justify-content:space-between;align-items:center;font-size:35.64px;padding:20.52px 42.24px;margin:11.88px 0;border-radius:17.28px;background:rgba(255,255,255,.09)}
+.sr{display:flex;justify-content:space-between;align-items:center;font-size:35.64px;padding:13px 42.24px;margin:8px 0;border-radius:17.28px;background:rgba(255,255,255,.09)}
 .sr.focus{background:rgba(255,255,255,.93);color:#111}
 .sr .v{direction:rtl;opacity:.95}
 
@@ -826,9 +826,23 @@ function vToggle(){
 function vSavePos(){
   try{if(V&&V.duration&&isFinite(V.duration)){localStorage.setItem(vKey(),String(V.currentTime>V.duration-15?0:Math.floor(V.currentTime)));}}catch(e){}
 }
+/* البث المباشر يُشغَّل في مشغّل التطبيق المستقل؛ t.web تعني استعمل مشغّل الصفحة */
+var nvTile=null;
+function openNative(t){
+  if(!t.live||t.web||!window.HomeBridge||!window.HomeBridge.playLive||!/^https?:/i.test(t.file))return false;
+  try{window.HomeBridge.playLive(t.t,JSON.stringify([t.file].concat(t.alt||[])));}catch(e){return false;}
+  nvTile=t;vRet=0;
+  return true;
+}
+function nativeVideoFallback(){
+  var t=nvTile;nvTile=null;
+  if(!t||adhanOn||(scr!=='home'&&scr!=='duroos'))return;
+  vRet=scr==='duroos'?1:0;t.web=1;openVideo(t);
+}
 function openVideo(t){
-  scr='video';vTile=t;
   if(A&&!A.paused){try{A.pause();}catch(e){}}
+  if(openNative(t))return;
+  scr='video';vTile=t;
   frame('<div id="vw"><video id="vid" preload="auto" playsinline="" webkit-playsinline=""></video><div id="vMsg"></div><div id="vOv" class="on"><div id="vT">'+t.t+'</div><div id="vSt"></div><div id="vBar"><i id="vFill"></i></div><div id="vTm"></div><div id="vHint">موافق: تشغيل / إيقاف &nbsp;•&nbsp; ◄ ►: 10 ثوانٍ &nbsp;•&nbsp; ▲ ▼: دقيقة &nbsp;•&nbsp; رجوع: خروج</div></div></div>');
   V=$('vid');
   var resume=0;
@@ -892,12 +906,15 @@ function closeVideo(){
 function bgIds(){var a=['auto'],i;for(i=0;i<scenes.length;i++){a.push(scenes[i].id);}return a;}
 function bgName(id){if(id==='auto')return 'تلقائي (تتبدل)';var i;for(i=0;i<scenes.length;i++){if(scenes[i].id===id){return scenes[i].name;}}return 'تلقائي (تتبدل)';}
 function exitToLauncher(){try{if(window.HomeBridge){window.HomeBridge.exitToLauncher();}}catch(e){}}
+function hb(m){try{if(window.HomeBridge&&window.HomeBridge[m]){return window.HomeBridge[m]();}}catch(e){}return false;}
 var SROWS=[
  {l:'المدينة',v:function(){return city().n;},ch:function(d){S.city=(S.city+d+CITIES.length)%CITIES.length;dayKey='';wx=null;paintWx();loadWx();}},
  {l:'صوت الأذان',v:function(){return S.sound?'مفعّل':'متوقف';},ch:function(){S.sound=S.sound?0:1;paintBell();}},
  {l:'الخلفية',v:function(){return bgName(S.bg);},ch:function(d){var a=bgIds(),i=a.indexOf(S.bg);if(i<0)i=0;S.bg=a[(i+d+a.length)%a.length];showScene(S.bg==='auto'?scenes[curScene].id:S.bg);}},
  {l:'لغة التحية والتاريخ',v:function(){return S.lang==='en'?'English':'العربية';},ch:function(){S.lang=S.lang==='en'?'ar':'en';dayKey='';paintHome();}},
  {l:'تعديل التاريخ الهجري',v:function(){return S.hj>0?'+'+S.hj+' يوم':(S.hj<0?S.hj+' يوم':'بدون تعديل');},ch:function(d){S.hj=Math.max(-2,Math.min(2,S.hj+d));dayKey='';}},
+ {l:'اللانشر الرئيسي',v:function(){return hb('isDefaultLauncher')?'مفعّل ✓':'اضغط موافق للتعيين';},ch:function(){hb('setAsLauncher');},act:1},
+ {l:'التشغيل عند الإقلاع',v:function(){return hb('canStartOnBoot')?'مسموح ✓':'اضغط موافق للسماح';},ch:function(){hb('allowStartOnBoot');},act:1},
  {l:'العودة إلى الشاشة',v:function(){return 'اضغط موافق';},ch:function(){back();exitToLauncher();},act:1},
  {l:'تجربة الأذان',v:function(){return 'اضغط موافق';},ch:function(){back();triggerAdhan('الظهر');},act:1},
  {l:'إغلاق',v:function(){return '';},ch:function(){back();},act:1}
@@ -1920,6 +1937,7 @@ function tick(){
 var adhanOn=false,adhanTimer=null,adhanAudio=null;
 function triggerAdhan(name){
   adhanOn=true;
+  try{if(window.HomeBridge&&window.HomeBridge.stopVideo){window.HomeBridge.stopVideo();}}catch(e){}
   $('aname').innerHTML=name;$('adhan').className='show';
   if(A&&!A.paused){try{A.pause();}catch(e){}}
   if(V&&!V.paused){try{V.pause();}catch(e){}}
