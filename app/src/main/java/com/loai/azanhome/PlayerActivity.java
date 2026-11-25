@@ -39,6 +39,14 @@ import java.util.List;
 import java.util.Set;
 
 import javax.net.ssl.SSLException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * مشغّل البث المباشر. يعمل في عملية مستقلة (android:process=":player")
@@ -74,6 +82,10 @@ public class PlayerActivity extends Activity {
     private boolean asHls = false;
     private boolean dead = false;
     private boolean sslFailed = false;
+    /** وضع متساهل مع شهادات HTTPS (للأجهزة القديمة التي تنقصها شهادات الجذر). يُفعَّل عند أول خطأ SSL ويُلغى عند إغلاق المشغّل. */
+    private boolean lenient = false;
+    private SSLSocketFactory prevFactory;
+    private HostnameVerifier prevVerifier;
 
     private final Runnable stall = this::next;
     private final Runnable advance = this::advance;
@@ -249,10 +261,54 @@ public class PlayerActivity extends Activity {
                 for (Throwable c = e.getCause(); c != null; c = c.getCause()) {
                     if (c instanceof SSLException) sslFailed = true;
                 }
+                if (sslFailed && !lenient) {
+                    enableLenientSsl();
+                    if (lenient) {
+                        sslFailed = false;
+                        final int again = index;
+                        ui.post(() -> { if (!isFinishing() && !dead) open(again); });
+                        return;
+                    }
+                }
                 next();
             }
         });
         return p;
+    }
+
+    private void enableLenientSsl() {
+        if (lenient) return;
+        try {
+            prevFactory = HttpsURLConnection.getDefaultSSLSocketFactory();
+            prevVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+            TrustManager[] tm = new TrustManager[]{new X509TrustManager() {
+                @Override public void checkClientTrusted(X509Certificate[] c, String a) { }
+                @Override public void checkServerTrusted(X509Certificate[] c, String a) { }
+                @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            }};
+            SSLContext ctx = SSLContext.getInstance("TLS");
+            ctx.init(null, tm, new SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(ctx.getSocketFactory());
+            HttpsURLConnection.setDefaultHostnameVerifier((host, session) -> true);
+            lenient = true;
+        } catch (Throwable t) {
+            Log.w(TAG, "lenient ssl failed", t);
+        }
+    }
+
+    private void restoreSsl() {
+        if (!lenient) return;
+        try {
+            if (prevFactory != null) HttpsURLConnection.setDefaultSSLSocketFactory(prevFactory);
+            if (prevVerifier != null) HttpsURLConnection.setDefaultHostnameVerifier(prevVerifier);
+        } catch (Throwable ignored) { }
+        lenient = false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        restoreSsl();
+        super.onDestroy();
     }
 
     /** مهلة التعليق: لا تُحتسب أثناء الإيقاف المؤقت. */
@@ -276,7 +332,7 @@ public class PlayerActivity extends Activity {
         if (isFinishing()) return;
         if (index + 1 < urls.size()) {
             open(index + 1);
-        } else if (sslFailed) {
+        } else if (sslFailed && !lenient) {
             setResult(RESULT_USE_WEB);
             finish();
         } else {

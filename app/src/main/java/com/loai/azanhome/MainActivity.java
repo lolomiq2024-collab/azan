@@ -55,35 +55,18 @@ public class MainActivity extends Activity {
             });
         }
 
-        /** يجلب نص رابط (قوائم M3U) مباشرة من الشبكة خارج الـ WebView، ويعيده للصفحة عبر window.__nf(id, text). */
+        /** يجلب نص رابط (قوائم M3U) مباشرة من الشبكة خارج الـ WebView، ويعيده للصفحة عبر window.__nf(id, text).
+         *  عند فشل شهادة HTTPS (أجهزة قديمة) يعيد المحاولة مرة واحدة بقبول الشهادة لهذا الاتصال فقط. */
         @JavascriptInterface
         public void fetchText(final String url, final int id) {
             new Thread(new Runnable() {
                 @Override public void run() {
                     String out = null;
-                    java.net.HttpURLConnection c = null;
                     try {
-                        c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-                        c.setConnectTimeout(12000);
-                        c.setReadTimeout(25000);
-                        c.setInstanceFollowRedirects(true);
-                        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AzanHome");
-                        if (c.getResponseCode() == 200) {
-                            java.io.InputStream in = c.getInputStream();
-                            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
-                            byte[] buf = new byte[16384];
-                            int n;
-                            int total = 0;
-                            while ((n = in.read(buf)) > 0 && total < 30000000) {
-                                bo.write(buf, 0, n);
-                                total += n;
-                            }
-                            in.close();
-                            out = bo.toString("UTF-8");
-                        }
+                        out = httpGet(url, false);
+                    } catch (javax.net.ssl.SSLException e) {
+                        try { out = httpGet(url, true); } catch (Throwable ignored) { }
                     } catch (Throwable ignored) {
-                    } finally {
-                        if (c != null) c.disconnect();
                     }
                     final String res = out;
                     runOnUiThread(new Runnable() {
@@ -96,6 +79,45 @@ public class MainActivity extends Activity {
                     });
                 }
             }).start();
+        }
+
+        private String httpGet(String url, boolean lenient) throws Exception {
+            java.net.HttpURLConnection c = null;
+            try {
+                c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                if (lenient && c instanceof javax.net.ssl.HttpsURLConnection) {
+                    javax.net.ssl.TrustManager[] tm = new javax.net.ssl.TrustManager[]{new javax.net.ssl.X509TrustManager() {
+                        @Override public void checkClientTrusted(java.security.cert.X509Certificate[] x, String a) { }
+                        @Override public void checkServerTrusted(java.security.cert.X509Certificate[] x, String a) { }
+                        @Override public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+                    }};
+                    javax.net.ssl.SSLContext ctx = javax.net.ssl.SSLContext.getInstance("TLS");
+                    ctx.init(null, tm, new java.security.SecureRandom());
+                    javax.net.ssl.HttpsURLConnection hc = (javax.net.ssl.HttpsURLConnection) c;
+                    hc.setSSLSocketFactory(ctx.getSocketFactory());
+                    hc.setHostnameVerifier(new javax.net.ssl.HostnameVerifier() {
+                        @Override public boolean verify(String h, javax.net.ssl.SSLSession s) { return true; }
+                    });
+                }
+                c.setConnectTimeout(8000);
+                c.setReadTimeout(15000);
+                c.setInstanceFollowRedirects(true);
+                c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AzanHome");
+                if (c.getResponseCode() != 200) return null;
+                java.io.InputStream in = c.getInputStream();
+                java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[16384];
+                int n;
+                int total = 0;
+                while ((n = in.read(buf)) > 0 && total < 30000000) {
+                    bo.write(buf, 0, n);
+                    total += n;
+                }
+                in.close();
+                return bo.toString("UTF-8");
+            } finally {
+                if (c != null) c.disconnect();
+            }
         }
 
         /** يشغّل قناة بث مباشر في المشغّل المستقل. urlsJson: مصفوفة روابط. */
