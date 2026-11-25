@@ -771,6 +771,7 @@ var vSeq=0,vDead=false,vTry='';
 function vSrc(u,force){
   if(VHLS){try{VHLS.destroy();}catch(e){}VHLS=null;}
   var v=V,seq=++vSeq;
+  u=u.split('|hdr:')[0];
   if(/\.m3u8(\?|$)/i.test(u)&&(force||!v.canPlayType('application/vnd.apple.mpegurl'))){
     ensureHls(function(ok){
       if(V!==v||seq!==vSeq)return;
@@ -1658,13 +1659,20 @@ function ipMerge(list){
 }
 var IP_AR=/[\u0600-\u06FF]|(^|[\s\-_])(al|el)[\s\-_]|mbc|rotana|jazeera|arabiya|arabia|roya|alkass|bein|ssc |dubai|sharjah|saudi|kuwait|qatar|oman|bahrain|jordan|egypt|nile|cairo|lebanon|syria|iraq|libya|tunis|algeri|morocc|palestin|sudan|yemen|ajman|emirates|abu ?dhabi|dream|cbc|ontv|nessma|ennahar|echorouk|medi ?1|2m |lbc|almanar|mamlaka|amman|quran|makkah|madina|iqra|ksa|sky ?news ?arab|bbc ?arab|dw ?arab|france ?24 ?arab|trt ?arab|ten tv|alghad|sama tv|future tv|orient/i;
 var IP_NOTAR=/(hindi|tamil|malayalam|telugu|urdu|punjabi|bangla|kannada|marathi|gujarati|asianet|zee |star ?plus|sony |colors|filipino|tagalog|persian|farsi|turk|kurd|rudaw)/i;
+/* ترويسات القناة من القائمة (Referer / User-Agent) تُلحق بالرابط ليقرأها المشغّل */
+function ipHdr(L,i,j){
+  var s=L.slice(i,j).join('\n'),h=[],m;
+  m=/http-user-agent=(?:"([^"]*)"|([^\r\n]*))/.exec(s);if(m&&(m[1]||m[2])){h.push('ua='+encodeURIComponent(m[1]||m[2]));}
+  m=/http-referr?er=(?:"([^"]*)"|([^\r\n]*))/.exec(s);if(m&&(m[1]||m[2])){h.push('ref='+encodeURIComponent(m[1]||m[2]));}
+  return h.length?'|hdr:'+h.join('&'):'';
+}
 function ipParse(txt,strict){
   var L=txt.split(/\r?\n/),i,j,m,g,n,u,k,out=[],ln;
   for(i=0;i<L.length;i++){
     ln=L[i];
     if(ln.indexOf('#EXTINF')!==0)continue;
     u='';
-    for(j=i+1;j<L.length&&j<i+4;j++){if(L[j]&&L[j].charAt(0)!=='#'){u=L[j].replace(/\s+$/,'');break;}}
+    for(j=i+1;j<L.length&&j<i+6;j++){if(L[j]&&L[j].charAt(0)!=='#'){u=L[j].replace(/\s+$/,'')+ipHdr(L,i,j);break;}}
     m=/tvg-language="([^"]*)"/.exec(ln);if(m&&m[1]&&!/arab|\u0639\u0631\u0628/i.test(m[1]))continue;
     m=/group-title="([^"]*)"/.exec(ln);g=m?m[1]:'';
     n=ln.substr(ln.lastIndexOf(',')+1).replace(/^\s+|\s+$/g,'');
@@ -1797,7 +1805,7 @@ function ipPush(){
   var all=[],i;
   for(i=0;i<IP_G.length;i++){if(ipRes[i]){all=all.concat(ipRes[i]);}}
   ipMerge(all);ipStat='ok';
-  try{localStorage.setItem('iptv_cache4',JSON.stringify(all.slice(0,2500)));}catch(e){}
+  try{localStorage.setItem('iptv_cache5',JSON.stringify(all.slice(0,2500)));}catch(e){}
   ipRefresh();
 }
 function ipFin(){
@@ -1825,7 +1833,7 @@ function ipOpen(){
   var l=null;
   if(!ipOpen.c){
     ipOpen.c=1;
-    try{l=JSON.parse(localStorage.getItem('iptv_cache4')||'null');}catch(e){l=null;}
+    try{l=JSON.parse(localStorage.getItem('iptv_cache5')||'null');}catch(e){l=null;}
     if(l&&l.length){ipMerge(l);}else{ipRebuild();}
   }
   openDuroos('menu',0,IPTOP);

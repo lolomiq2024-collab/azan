@@ -22,6 +22,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -34,8 +35,10 @@ import org.json.JSONArray;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.net.ssl.SSLException;
@@ -65,6 +68,12 @@ public class PlayerActivity extends Activity {
     private static final String TAG = "AzanPlayer";
     private static final String PREFS = "player";
     private static final long STALL_MS = 15000;
+    /** يفصل الرابط عن ترويساته: url|hdr:ua=..&ref=.. */
+    private static final String HDR = "|hdr:";
+    private static final String USER_AGENT = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 "
+            + "(KHTML, like Gecko) Chrome/120.0 Safari/537.36";
+    /** مفتاح جديد كي تُمسح علامات الانهيار القديمة. */
+    private static final String CRASHED_KEY = "crashed_v3";
     /** مهلة قبل بدء التشغيل حتى تستقر الشاشة الرئيسية في الخلفية. */
     private static final long START_DELAY_MS = 1200;
 
@@ -82,12 +91,17 @@ public class PlayerActivity extends Activity {
     private boolean asHls = false;
     private boolean dead = false;
     private boolean sslFailed = false;
+    /** رمز آخر خطأ، يظهر في رسالة الفشل لمعرفة السبب. */
+    private String lastError = "";
     /** وضع متساهل مع شهادات HTTPS (للأجهزة القديمة التي تنقصها شهادات الجذر). يُفعَّل عند أول خطأ SSL ويُلغى عند إغلاق المشغّل. */
     private boolean lenient = false;
     private SSLSocketFactory prevFactory;
     private HostnameVerifier prevVerifier;
 
-    private final Runnable stall = this::next;
+    private final Runnable stall = () -> {
+        lastError = "TIMEOUT";
+        next();
+    };
     private final Runnable advance = this::advance;
     private final Runnable start = () -> open(0);
     private final Runnable hideStatus = () -> status.setVisibility(View.GONE);
@@ -143,11 +157,11 @@ public class PlayerActivity extends Activity {
     /** يرتّب الروابط: آخر رابط ناجح أولاً، والروابط التي سبّبت انهياراً في الآخر. */
     private void loadUrls(String json) {
         // علامة متبقية من تشغيل سابق تعني أن ذلك الرابط أسقط المشغّل
-        crashed.addAll(prefs.getStringSet("crashed", new HashSet<String>()));
+        crashed.addAll(prefs.getStringSet(CRASHED_KEY, new HashSet<String>()));
         String last = CrashMarker.take(marker());
         if (last != null) {
             crashed.add(last);
-            prefs.edit().putStringSet("crashed", new HashSet<>(crashed)).commit();
+            prefs.edit().putStringSet(CRASHED_KEY, new HashSet<>(crashed)).commit();
         }
         List<String> bad = new ArrayList<>();
         try {
@@ -177,24 +191,43 @@ public class PlayerActivity extends Activity {
                 + (urls.size() > 1 ? " (الرابط " + (i + 1) + " من " + urls.size() + ")" : ""), false);
         try {
             CrashMarker.write(marker(), url);
-            player = build(crashed.contains(url));
+            player = build(url, crashed.contains(url));
             player.setVideoSurfaceView(surface);
-            player.setMediaItem(MediaItem.fromUri(url));
+            player.setMediaItem(MediaItem.fromUri(address(url)));
             player.prepare();
             player.play();
             armStall();
         } catch (Throwable t) {
             Log.e(TAG, "open failed", t);
+            lastError = t.getClass().getSimpleName();
             next();
         }
     }
 
-    private ExoPlayer build(boolean preferSoftware) {
+    private static String address(String entry) {
+        int at = entry.indexOf(HDR);
+        return at < 0 ? entry : entry.substring(0, at);
+    }
+
+    private ExoPlayer build(String entry, boolean preferSoftware) {
+        String agent = USER_AGENT;
+        Map<String, String> headers = new HashMap<>();
+        int at = entry.indexOf(HDR);
+        if (at >= 0) {
+            for (String pair : entry.substring(at + HDR.length()).split("&")) {
+                int eq = pair.indexOf('=');
+                if (eq < 0) continue;
+                String value = Uri.decode(pair.substring(eq + 1));
+                if (pair.startsWith("ua=")) agent = value;
+                else if (pair.startsWith("ref=")) headers.put("Referer", value);
+            }
+        }
         DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(15000)
                 .setReadTimeoutMs(15000)
-                .setUserAgent("Mozilla/5.0 (Linux; Android) AzanHome/1.0");
+                .setUserAgent(agent)
+                .setDefaultRequestProperties(headers);
         DefaultRenderersFactory renderers = new DefaultRenderersFactory(this)
                 .setEnableDecoderFallback(true);
         if (preferSoftware) {
@@ -252,13 +285,17 @@ public class PlayerActivity extends Activity {
                         == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) {
                     asHls = true;
                     p.setMediaItem(new MediaItem.Builder()
-                            .setUri(Uri.parse(urls.get(index)))
+                            .setUri(Uri.parse(address(urls.get(index))))
                             .setMimeType(MimeTypes.APPLICATION_M3U8)
                             .build());
                     p.prepare();
                     return;
                 }
+                lastError = e.getErrorCodeName();
                 for (Throwable c = e.getCause(); c != null; c = c.getCause()) {
+                    if (c instanceof HttpDataSource.InvalidResponseCodeException) {
+                        lastError = "HTTP " + ((HttpDataSource.InvalidResponseCodeException) c).responseCode;
+                    }
                     if (c instanceof SSLException) sslFailed = true;
                 }
                 if (sslFailed && !lenient) {
@@ -336,7 +373,8 @@ public class PlayerActivity extends Activity {
             setResult(RESULT_USE_WEB);
             finish();
         } else {
-            fail("تعذّر تشغيل القناة\nاضغط موافق لإعادة المحاولة، أو رجوع للخروج");
+            fail("تعذّر تشغيل القناة\nاضغط موافق لإعادة المحاولة، أو رجوع للخروج"
+                    + (lastError.isEmpty() ? "" : "\n(" + lastError + ")"));
         }
     }
 
@@ -369,6 +407,7 @@ public class PlayerActivity extends Activity {
             if (!urls.isEmpty()) {
                 dead = false;
                 sslFailed = false;
+                lastError = "";
                 open(0);
             }
         } else if (player != null) {
