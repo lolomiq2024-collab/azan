@@ -1656,6 +1656,8 @@ function ipMerge(list){
   }
   ipRebuild();
 }
+var IP_AR=/[\u0600-\u06FF]|(^|[\s\-_])(al|el)[\s\-_]|mbc|rotana|jazeera|arabiya|arabia|roya|alkass|bein|ssc |dubai|sharjah|saudi|kuwait|qatar|oman|bahrain|jordan|egypt|nile|cairo|lebanon|syria|iraq|libya|tunis|algeri|morocc|palestin|sudan|yemen|ajman|emirates|abu ?dhabi|dream|cbc|ontv|nessma|ennahar|echorouk|medi ?1|2m |lbc|almanar|mamlaka|amman|quran|makkah|madina|iqra|ksa|sky ?news ?arab|bbc ?arab|dw ?arab|france ?24 ?arab|trt ?arab|ten tv|alghad|sama tv|future tv|orient/i;
+var IP_NOTAR=/(hindi|tamil|malayalam|telugu|urdu|punjabi|bangla|kannada|marathi|gujarati|asianet|zee |star ?plus|sony |colors|filipino|tagalog|persian|farsi|turk|kurd|rudaw)/i;
 function ipParse(txt,strict){
   var L=txt.split(/\r?\n/),i,j,m,g,n,u,k,out=[],ln;
   for(i=0;i<L.length;i++){
@@ -1663,14 +1665,17 @@ function ipParse(txt,strict){
     if(ln.indexOf('#EXTINF')!==0)continue;
     u='';
     for(j=i+1;j<L.length&&j<i+4;j++){if(L[j]&&L[j].charAt(0)!=='#'){u=L[j].replace(/\s+$/,'');break;}}
+    m=/tvg-language="([^"]*)"/.exec(ln);if(m&&m[1]&&!/arab|\u0639\u0631\u0628/i.test(m[1]))continue;
     m=/group-title="([^"]*)"/.exec(ln);g=m?m[1]:'';
     n=ln.substr(ln.lastIndexOf(',')+1).replace(/^\s+|\s+$/g,'');
     if(/geo-?block/i.test(n))continue;
     n=n.replace(/\s*[\(\[][^\)\]]*[\)\]]/g,'').replace(/^\s+|\s+$/g,'');
     if(!n||IP_BAD.test(n))continue;
-    k=ipClass(n,g,strict);if(!k)continue;
+    if(IP_NOTAR.test(n))continue;
+    if(strict===2&&!IP_AR.test(n))continue;
+    k=ipClass(n,g,strict===1);if(!k)continue;
     /* روابط https فقط، ويُسمح بـ http للقنوات المثبّتة (الأردنية والأطفال والعربية) */
-    if(u.indexOf('https://')!==0&&!(k.pk&&u.indexOf('http://')===0))continue;
+    if(!/^https?:\/\//i.test(u))continue;
     out.push({t:n,u:u,c:k.c,k:k.pk,r:k.r});
   }
   return out;
@@ -1745,20 +1750,13 @@ function ipvLoad(kind){
 var ipWhy='',vWhy='';
 function wvVer(){var m=/Chrome\/(\d+)/.exec(navigator.userAgent||'');return m?('WebView '+m[1]):'WebView ?';}
 var ipStat='',ipDone=0,ipOk=0,ipRes=[];
-function ipMir(p){return ['https://iptv-org.github.io/iptv/'+p,'https://cdn.jsdelivr.net/gh/iptv-org/iptv@gh-pages/'+p,'https://raw.githubusercontent.com/iptv-org/iptv/gh-pages/'+p];}
+function ipMir(p){return ['https://cdn.jsdelivr.net/gh/iptv-org/iptv@gh-pages/'+p,'https://iptv-org.github.io/iptv/'+p,'https://raw.githubusercontent.com/iptv-org/iptv/gh-pages/'+p];}
 /* مصادر القوائم: تُحمَّل كلها بالتوازي، وكل مصدر له روابط بديلة (mirrors). s=1 يعني قائمة عامة تُفلتر بصرامة */
 var IP_CC='sa,jo,eg,ae,kw,qa,lb,sy,iq,ma,dz,tn,ly,ps,om,bh,sd,ye'.split(',');
+/* عربي فقط: languages/ara.m3u (كل ما بثّه عربي)، ثم قوائم الدول العربية مع فلتر يُبقي القنوات العربية فقط (s:2) */
 var IP_G=[{m:ipMir('languages/ara.m3u'),s:0}];
 (function(){var i;
-  for(i=0;i<IP_CC.length;i++){IP_G.push({m:ipMir('countries/'+IP_CC[i]+'.m3u'),s:0});}
-  IP_G.push({m:ipMir('categories/religious.m3u'),s:1});
-  IP_G.push({m:ipMir('categories/sports.m3u'),s:1});
-  IP_G.push({m:ipMir('categories/kids.m3u'),s:1});
-  IP_G.push({m:ipMir('categories/animation.m3u'),s:1});
-  IP_G.push({m:ipMir('categories/movies.m3u'),s:1});
-  IP_G.push({m:ipMir('categories/series.m3u'),s:1});
-  IP_G.push({m:['https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8','https://cdn.jsdelivr.net/gh/Free-TV/IPTV@master/playlist.m3u8'],s:1});
-  IP_G.push({m:ipMir('index.m3u'),s:1});
+  for(i=0;i<IP_CC.length;i++){IP_G.push({m:ipMir('countries/'+IP_CC[i]+'.m3u'),s:2});}
 })();
 var ipNxt=0;
 var NF={n:0,cb:{}};
@@ -1799,7 +1797,7 @@ function ipPush(){
   var all=[],i;
   for(i=0;i<IP_G.length;i++){if(ipRes[i]){all=all.concat(ipRes[i]);}}
   ipMerge(all);ipStat='ok';
-  try{localStorage.setItem('iptv_cache3',JSON.stringify(all.slice(0,2500)));}catch(e){}
+  try{localStorage.setItem('iptv_cache4',JSON.stringify(all.slice(0,2500)));}catch(e){}
   ipRefresh();
 }
 function ipFin(){
@@ -1815,19 +1813,19 @@ function ipGrp(gi,mi){
     if(t){try{l=ipParse(t,G.s);}catch(e){l=null;ipWhy='خطأ قراءة';}}
     if(l&&l.length){ipRes[gi]=l;ipOk++;try{ipPush();}catch(e){ipWhy='خطأ دمج';}ipFin();}
     else{ipGrp(gi,mi+1);}
-  },20000);
+  },10000);
 }
 function ipLoad(){
   var g;
   if(ipLd)return;
   ipLd=1;ipStat='loading';ipDone=0;ipOk=0;
-  ipNxt=0;for(g=0;g<5&&ipNxt<IP_G.length;g++){ipGrp(ipNxt++,0);}
+  ipNxt=0;for(g=0;g<8&&ipNxt<IP_G.length;g++){ipGrp(ipNxt++,0);}
 }
 function ipOpen(){
   var l=null;
   if(!ipOpen.c){
     ipOpen.c=1;
-    try{l=JSON.parse(localStorage.getItem('iptv_cache3')||'null');}catch(e){l=null;}
+    try{l=JSON.parse(localStorage.getItem('iptv_cache4')||'null');}catch(e){l=null;}
     if(l&&l.length){ipMerge(l);}else{ipRebuild();}
   }
   openDuroos('menu',0,IPTOP);
