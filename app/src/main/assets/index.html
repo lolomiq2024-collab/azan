@@ -90,7 +90,7 @@ body{font-family:Tajawal,Cairo,"Droid Arabic Naskh","Noto Naskh Arabic",Roboto,A
 .sr .v{direction:rtl;opacity:.95}
 
 #vw{position:absolute;top:0;left:0;width:1920px;height:1080px;background:#000;z-index:3}
-#vid{position:absolute;top:0;left:0;width:1920px;height:1080px;background:#000}
+#vid{position:absolute;top:0;left:0;width:1920px;height:1080px;background:#000;object-fit:fill}
 #vOv{position:absolute;left:0;right:0;bottom:0;padding:70px 90px 46px;background:-webkit-linear-gradient(top,rgba(0,0,0,0),rgba(0,0,0,.85));background:linear-gradient(to bottom,rgba(0,0,0,0),rgba(0,0,0,.85));opacity:0;-webkit-transition:opacity .4s;transition:opacity .4s;direction:rtl}
 #vOv.on{opacity:1}
 #vT{font-size:44px;font-weight:700}
@@ -851,6 +851,7 @@ function openVideo(t,web){
   scr='video';vTile=t;
   frame('<div id="vw"><video id="vid" preload="auto" playsinline="" webkit-playsinline=""></video><div id="vMsg"></div><div id="vOv" class="on"><div id="vT">'+t.t+'</div><div id="vSt"></div><div id="vBar"><i id="vFill"></i></div><div id="vTm"></div><div id="vHint">موافق: تشغيل / إيقاف &nbsp;•&nbsp; '+(t.live&&window.HomeBridge?'▲ ▼: المشغّل المدمج':'◄ ►: 10 ثوانٍ &nbsp;•&nbsp; ▲ ▼: دقيقة')+' &nbsp;•&nbsp; رجوع: خروج</div></div></div>');
   V=$('vid');
+  fit();
   var resume=0;
   try{resume=parseInt(localStorage.getItem(vKey())||'0',10)||0;}catch(e){}
   V.onloadedmetadata=function(){if(resume>0&&resume<V.duration-15){try{V.currentTime=resume;}catch(e){}}};
@@ -2129,7 +2130,13 @@ $('b0').onclick=function(){zone='top';bi=0;S.sound=S.sound?0:1;save();paintHome(
 $('b1').onclick=function(){zone='top';bi=1;paintHome();openSettings();};
 
 /* ================= البدء ================= */
-function fit(){var w=window.innerWidth||1920,h=window.innerHeight||1080,k=Math.min(w/1920,h/1080),t='translate('+((w-1920*k)/2)+'px,'+((h-1080*k)/2)+'px) scale('+k+')',st=$('stage').style;st.webkitTransform=t;st.transform=t;}
+/* فيديو مشغّل WebView يغطي الشاشة كلها مهما كان تحجيم الواجهة */
+function vFull(w,h,k){
+  var v=$('vid');if(!v||!k)return;
+  var s=v.style;
+  s.left=(-(w-1920*k)/2/k)+'px';s.top=(-(h-1080*k)/2/k)+'px';s.width=(w/k)+'px';s.height=(h/k)+'px';
+}
+function fit(){var de=document.documentElement,w=de.clientWidth||window.innerWidth||1920,h=de.clientHeight||window.innerHeight||1080,k=Math.min(w/1920,h/1080),t='translate('+((w-1920*k)/2)+'px,'+((h-1080*k)/2)+'px) scale('+k+')',st=$('stage').style;st.webkitTransform=t;st.transform=t;vFull(w,h,k);}
 window.onresize=fit;window.onorientationchange=fit;
 (function init(){
   fit();
