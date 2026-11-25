@@ -55,6 +55,49 @@ public class MainActivity extends Activity {
             });
         }
 
+        /** يجلب نص رابط (قوائم M3U) مباشرة من الشبكة خارج الـ WebView، ويعيده للصفحة عبر window.__nf(id, text). */
+        @JavascriptInterface
+        public void fetchText(final String url, final int id) {
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    String out = null;
+                    java.net.HttpURLConnection c = null;
+                    try {
+                        c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                        c.setConnectTimeout(12000);
+                        c.setReadTimeout(25000);
+                        c.setInstanceFollowRedirects(true);
+                        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AzanHome");
+                        if (c.getResponseCode() == 200) {
+                            java.io.InputStream in = c.getInputStream();
+                            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                            byte[] buf = new byte[16384];
+                            int n;
+                            int total = 0;
+                            while ((n = in.read(buf)) > 0 && total < 8000000) {
+                                bo.write(buf, 0, n);
+                                total += n;
+                            }
+                            in.close();
+                            out = bo.toString("UTF-8");
+                        }
+                    } catch (Throwable ignored) {
+                    } finally {
+                        if (c != null) c.disconnect();
+                    }
+                    final String res = out;
+                    runOnUiThread(new Runnable() {
+                        @Override public void run() {
+                            if (web == null) return;
+                            String js = "window.__nf(" + id + ","
+                                    + (res == null ? "null" : org.json.JSONObject.quote(res)) + ");";
+                            web.evaluateJavascript(js, null);
+                        }
+                    });
+                }
+            }).start();
+        }
+
         /** يشغّل قناة بث مباشر في المشغّل المستقل. urlsJson: مصفوفة روابط. */
         @JavascriptInterface
         public void playLive(final String title, final String urlsJson) {
