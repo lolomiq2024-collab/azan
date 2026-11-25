@@ -776,7 +776,10 @@ function vSrc(u,force){
     ensureHls(function(ok){
       if(V!==v||seq!==vSeq)return;
       if(ok&&window.Hls&&Hls.isSupported()){
-        var h=VHLS=new Hls();h.loadSource(u);h.attachMedia(v);
+        var h=VHLS=new Hls();
+        /* أعلى جودة 480p */
+        h.on(Hls.Events.MANIFEST_PARSED,function(e,d){var i,c=0;for(i=0;i<d.levels.length;i++){if(!(d.levels[i].height>480)){c=i;}}h.autoLevelCapping=c;});
+        h.loadSource(u);h.attachMedia(v);
         h.on(Hls.Events.ERROR,function(e,d){if(!d||!d.fatal||VHLS!==h)return;vWhy='HLS: '+d.type+' / '+d.details+(d.response&&d.response.code?' ('+d.response.code+')':'');if(V===v&&v.onerror){v.onerror();}});
         var p=v.play();if(p&&p.catch){p.catch(function(){});}
       }else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=u;var q=v.play();if(q&&q.catch){q.catch(function(){});}
@@ -827,10 +830,11 @@ function vToggle(){
 function vSavePos(){
   try{if(V&&V.duration&&isFinite(V.duration)){localStorage.setItem(vKey(),String(V.currentTime>V.duration-15?0:Math.floor(V.currentTime)));}}catch(e){}
 }
-/* البث المباشر يُشغَّل في مشغّل التطبيق المستقل؛ t.web تعني استعمل مشغّل الصفحة */
+/* مشغّلان للبث المباشر: المدمج (ExoPlayer) و WebView. web: true يفرض WebView و false يفرض المدمج، وبدونها حسب الإعدادات */
 var nvTile=null;
-function openNative(t){
-  if(!t.live||t.web||!window.HomeBridge||!window.HomeBridge.playLive||!/^https?:/i.test(t.file))return false;
+function openNative(t,web){
+  if(web===true||(web!==false&&S.player==='web'))return false;
+  if(!t.live||!window.HomeBridge||!window.HomeBridge.playLive||!/^https?:/i.test(t.file))return false;
   try{window.HomeBridge.playLive(t.t,JSON.stringify([t.file].concat(t.alt||[])));}catch(e){return false;}
   nvTile=t;vRet=0;
   return true;
@@ -838,13 +842,14 @@ function openNative(t){
 function nativeVideoFallback(){
   var t=nvTile;nvTile=null;
   if(!t||adhanOn||(scr!=='home'&&scr!=='duroos'))return;
-  vRet=scr==='duroos'?1:0;t.web=1;openVideo(t);
+  vRet=scr==='duroos'?1:0;openVideo(t,true);
 }
-function openVideo(t){
+function vSwitch(){var t=vTile;back();openVideo(t,false);}
+function openVideo(t,web){
   if(A&&!A.paused){try{A.pause();}catch(e){}}
-  if(openNative(t))return;
+  if(openNative(t,web))return;
   scr='video';vTile=t;
-  frame('<div id="vw"><video id="vid" preload="auto" playsinline="" webkit-playsinline=""></video><div id="vMsg"></div><div id="vOv" class="on"><div id="vT">'+t.t+'</div><div id="vSt"></div><div id="vBar"><i id="vFill"></i></div><div id="vTm"></div><div id="vHint">موافق: تشغيل / إيقاف &nbsp;•&nbsp; ◄ ►: 10 ثوانٍ &nbsp;•&nbsp; ▲ ▼: دقيقة &nbsp;•&nbsp; رجوع: خروج</div></div></div>');
+  frame('<div id="vw"><video id="vid" preload="auto" playsinline="" webkit-playsinline=""></video><div id="vMsg"></div><div id="vOv" class="on"><div id="vT">'+t.t+'</div><div id="vSt"></div><div id="vBar"><i id="vFill"></i></div><div id="vTm"></div><div id="vHint">موافق: تشغيل / إيقاف &nbsp;•&nbsp; '+(t.live&&window.HomeBridge?'▲ ▼: المشغّل المدمج':'◄ ►: 10 ثوانٍ &nbsp;•&nbsp; ▲ ▼: دقيقة')+' &nbsp;•&nbsp; رجوع: خروج</div></div></div>');
   V=$('vid');
   var resume=0;
   try{resume=parseInt(localStorage.getItem(vKey())||'0',10)||0;}catch(e){}
@@ -872,7 +877,7 @@ function openVideo(t){
     if(tries<srcs.length*(t.live?2:1)){
       si=(si+1)%srcs.length;
       vTry=srcs.length>1?' (الرابط '+(si+1)+' من '+srcs.length+')':'';
-      vSrc(srcs[si],t.live&&tries>=srcs.length);vArm(t.live);
+      vSrc(srcs[si],t.live&&tries<srcs.length);vArm(t.live);
       var p2=V.play();if(p2&&p2.catch){p2.catch(function(){});}
       vUpd();return;
     }
@@ -887,7 +892,7 @@ function openVideo(t){
     var r=$('vBar').getBoundingClientRect();
     if(V.duration&&isFinite(V.duration)){V.currentTime=V.duration*Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));vShow();vUpd();}
   };
-  vSrc(srcs[0]);vArm(t.live);
+  vSrc(srcs[0],t.live);vArm(t.live);
   var pr=V.play();if(pr&&pr.catch){pr.catch(function(){});}
   vUpd();
   if(vT){clearInterval(vT);}
@@ -913,6 +918,7 @@ var SROWS=[
  {l:'صوت الأذان',v:function(){return S.sound?'مفعّل':'متوقف';},ch:function(){S.sound=S.sound?0:1;paintBell();}},
  {l:'الخلفية',v:function(){return bgName(S.bg);},ch:function(d){var a=bgIds(),i=a.indexOf(S.bg);if(i<0)i=0;S.bg=a[(i+d+a.length)%a.length];showScene(S.bg==='auto'?scenes[curScene].id:S.bg);}},
  {l:'لغة التحية والتاريخ',v:function(){return S.lang==='en'?'English':'العربية';},ch:function(){S.lang=S.lang==='en'?'ar':'en';dayKey='';paintHome();}},
+ {l:'مشغّل القنوات',v:function(){return S.player==='web'?'WebView':'المدمج';},ch:function(){S.player=S.player==='web'?'exo':'web';}},
  {l:'تعديل التاريخ الهجري',v:function(){return S.hj>0?'+'+S.hj+' يوم':(S.hj<0?S.hj+' يوم':'بدون تعديل');},ch:function(d){S.hj=Math.max(-2,Math.min(2,S.hj+d));dayKey='';}},
  {l:'اللانشر الرئيسي',v:function(){return hb('isDefaultLauncher')?'مفعّل ✓':'اضغط موافق للتعيين';},ch:function(){hb('setAsLauncher');},act:1},
  {l:'التشغيل عند الإقلاع',v:function(){return hb('canStartOnBoot')?'مسموح ✓':'اضغط موافق للسماح';},ch:function(){hb('allowStartOnBoot');},act:1},
@@ -1602,7 +1608,7 @@ var IPBK={"alarabiyaenglish":["https://live.alarabiya.net/alarabiapublish/englis
 "zagrostv":["https://5a3ed7a72ed4b.streamlock.net/zagrostv/SMIL:myStream.smil/playlist.m3u8","https://hlspackager.akamaized.net/live/DB/ZAGROS_TV/HLS/ZAGROS_TV.m3u8"]};
 function ipBack(t,u){
   var k=ipKey(t),b=IPBK.hasOwnProperty(k)?IPBK[k]:[],r=u.slice(),i;
-  for(i=0;i<b.length&&r.length<8;i++){if(r.indexOf(b[i])<0){r.push(b[i]);}}
+  for(i=0;i<b.length&&r.length<6;i++){if(r.indexOf(b[i])<0){r.push(b[i]);}}
   return r;
 }
 /* القنوات التي فشلت كل روابطها تُؤخَّر إلى آخر القسم 6 ساعات وتظهر بعلامة ⚠ */
@@ -1632,13 +1638,13 @@ function ipMerge(list){
     if(it.k){
       P=pm[it.k];
       if(!P){P=pm[it.k]={t:IPPT[it.k],pk:it.k,u:[]};}
-      if(P.u.indexOf(it.u)<0&&P.u.length<8){P.u.push(it.u);}
+      if(P.u.indexOf(it.u)<0&&P.u.length<6){P.u.push(it.u);}
       continue;
     }
     key=ipKey(it.t);
     if(!key)continue;
     if(seen[key]){
-      if(seen[key]!==1&&seen[key].a.length<8&&seen[key].a.indexOf(it.u)<0){seen[key].a.push(it.u);}
+      if(seen[key]!==1&&seen[key].a.length<6&&seen[key].a.indexOf(it.u)<0){seen[key].a.push(it.u);}
       continue;
     }
     it.i=i;it.a=[it.u];seen[key]=it;
@@ -1766,6 +1772,8 @@ var IP_CC='sa,jo,eg,ae,kw,qa,lb,sy,iq,ma,dz,tn,ly,ps,om,bh,sd,ye'.split(',');
 var IP_G=[{m:ipMir('languages/ara.m3u'),s:0}];
 (function(){var i;
   for(i=0;i<IP_CC.length;i++){IP_G.push({m:ipMir('countries/'+IP_CC[i]+'.m3u'),s:2});}
+  /* مصدر إضافي للروابط الاحتياطية: Free-TV/IPTV */
+  IP_G.push({m:['https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8','https://cdn.jsdelivr.net/gh/Free-TV/IPTV@master/playlist.m3u8'],s:2});
 })();
 var ipNxt=0;
 var NF={n:0,cb:{}};
@@ -1806,7 +1814,7 @@ function ipPush(){
   var all=[],i;
   for(i=0;i<IP_G.length;i++){if(ipRes[i]){all=all.concat(ipRes[i]);}}
   ipMerge(all);ipStat='ok';
-  try{localStorage.setItem('iptv_cache5',JSON.stringify(all.slice(0,2500)));}catch(e){}
+  try{localStorage.setItem('iptv_cache6',JSON.stringify(all.slice(0,2500)));}catch(e){}
   ipRefresh();
 }
 function ipFin(){
@@ -1834,7 +1842,7 @@ function ipOpen(){
   var l=null;
   if(!ipOpen.c){
     ipOpen.c=1;
-    try{l=JSON.parse(localStorage.getItem('iptv_cache5')||'null');}catch(e){l=null;}
+    try{l=JSON.parse(localStorage.getItem('iptv_cache6')||'null');}catch(e){l=null;}
     if(l&&l.length){ipMerge(l);}else{ipRebuild();}
   }
   openDuroos('menu',0,IPTOP);
@@ -2087,6 +2095,7 @@ function route(k){
     else if(k==='ok'){vToggle();}
     else if(k==='left'){vSeek(-10);}
     else if(k==='right'){vSeek(10);}
+    else if((k==='up'||k==='down')&&vTile&&vTile.live&&window.HomeBridge){vSwitch();}
     else if(k==='up'){vSeek(60);}
     else if(k==='down'){vSeek(-60);}
   }else if(scr==='duroos'){

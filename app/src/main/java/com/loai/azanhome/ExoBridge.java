@@ -92,7 +92,7 @@ public class ExoBridge {
                 .build();
         player.setVideoSurfaceView(surface);
         player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
-                .setMaxVideoSize(1280, 720).build());
+                .setMaxVideoSize(854, 480).build());
         player.addListener(new Player.Listener() {
             @Override public void onPlaybackStateChanged(int s) { state = s; }
             @Override public void onPlayWhenReadyChanged(boolean p, int r) { playWhenReady = p; }

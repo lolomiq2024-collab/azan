@@ -267,6 +267,10 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_PLAYER) {
             if (resultCode == PlayerActivity.RESULT_USE_WEB) {
+                String error = data == null ? null : data.getStringExtra(PlayerActivity.EXTRA_ERROR);
+                if (error != null && !error.isEmpty()) {
+                    toast("المشغّل المدمج: " + error + "\nجارٍ تجربة WebView");
+                }
                 js("if(window.nativeVideoFallback){nativeVideoFallback();}");
             }
         } else if (requestCode == REQ_HOME_ROLE) {
@@ -372,7 +376,8 @@ public class MainActivity extends Activity {
             playerOpen = false;
             // بقاء العلامة يعني أن المشغّل انهار (ويقرأها هو في المرة القادمة)
             if (new File(getFilesDir(), PlayerActivity.CRASH_MARKER).exists()) {
-                toast("تعذّر تشغيل هذه القناة على الجهاز، حاول مرة أخرى لتجربة رابط آخر");
+                toast("توقف المشغّل المدمج، جارٍ تجربة WebView");
+                js("if(window.nativeVideoFallback){nativeVideoFallback();}");
             }
         }
         // تحديث حالة صفوف الإعدادات بعد العودة من إعدادات النظام

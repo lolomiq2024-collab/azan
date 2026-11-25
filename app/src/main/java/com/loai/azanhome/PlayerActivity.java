@@ -1,6 +1,7 @@
 package com.loai.azanhome;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
@@ -60,8 +61,9 @@ public class PlayerActivity extends Activity {
 
     static final String EXTRA_TITLE = "title";
     static final String EXTRA_URLS = "urls";
-    /** نتيجة: فشل الاتصال الآمن، فلتجرّب الصفحة مشغّل الويب. */
+    /** نتيجة: فلتشغّل الصفحة القناة بمشغّل WebView (بعد الفشل أو بطلب المستخدم). */
     static final int RESULT_USE_WEB = RESULT_FIRST_USER;
+    static final String EXTRA_ERROR = "error";
     /** ملف يبقى موجوداً إن انهارت عملية المشغّل أثناء التشغيل، ومحتواه الرابط. */
     static final String CRASH_MARKER = "playing.url";
 
@@ -249,7 +251,7 @@ public class PlayerActivity extends Activity {
                         .build())
                 .build();
         p.setTrackSelectionParameters(p.getTrackSelectionParameters().buildUpon()
-                .setMaxVideoSize(1280, 720).build());
+                .setMaxVideoSize(854, 480).build());
         p.addListener(new Player.Listener() {
             @Override public void onPlaybackStateChanged(int state) {
                 if (p != player) return;
@@ -257,7 +259,7 @@ public class PlayerActivity extends Activity {
                     ui.removeCallbacks(stall);
                     dead = false;
                     prefs.edit().putString("ok_" + title, urls.get(index)).apply();
-                    show(title, true);
+                    show(title + "\n▲ ▼ : مشغّل WebView", true);
                 } else if (state == Player.STATE_BUFFERING) {
                     show(title + "\nجارٍ التحميل…", false);
                     armStall();
@@ -369,13 +371,14 @@ public class PlayerActivity extends Activity {
         if (isFinishing()) return;
         if (index + 1 < urls.size()) {
             open(index + 1);
-        } else if (sslFailed && !lenient) {
-            setResult(RESULT_USE_WEB);
-            finish();
         } else {
-            fail("تعذّر تشغيل القناة\nاضغط موافق لإعادة المحاولة، أو رجوع للخروج"
-                    + (lastError.isEmpty() ? "" : "\n(" + lastError + ")"));
+            useWeb(lastError);   // فشلت كل الروابط: جرّب مشغّل WebView
         }
+    }
+
+    private void useWeb(String error) {
+        setResult(RESULT_USE_WEB, new Intent().putExtra(EXTRA_ERROR, error));
+        finish();
     }
 
     private void fail(String message) {
@@ -431,6 +434,10 @@ public class PlayerActivity extends Activity {
                 || k == KeyEvent.KEYCODE_NUMPAD_ENTER || k == KeyEvent.KEYCODE_SPACE
                 || k == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
             if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) toggle();
+            return true;
+        }
+        if (k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) useWeb("");
             return true;
         }
         return super.dispatchKeyEvent(e);   // زر الرجوع يغلق المشغّل
