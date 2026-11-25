@@ -613,7 +613,11 @@ function ensureHls(cb){
   HLSQ=[cb];
   var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.8/hls.min.js';
   function done(ok){var q=HLSQ;HLSQ=null;for(var i=0;i<q.length;i++){q[i](ok);}}
-  s.onload=function(){done(true);};s.onerror=function(){done(false);};
+  s.onload=function(){done(true);};
+  s.onerror=function(){
+    var b=document.createElement('script');b.src='https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js';
+    b.onload=s.onload;b.onerror=function(){done(false);};document.head.appendChild(b);
+  };
   document.head.appendChild(s);
 }
 function aSrc(a,u){
@@ -622,8 +626,8 @@ function aSrc(a,u){
     ensureHls(function(ok){
       if(A!==a)return;
       if(ok&&window.Hls&&Hls.isSupported()){
-        HLSI=new Hls();HLSI.loadSource(u);HLSI.attachMedia(a);
-        HLSI.on(Hls.Events.ERROR,function(e,d){if(d&&d.fatal&&A===a&&a.onerror){a.onerror();}});
+        var h=HLSI=new Hls();HLSI.loadSource(u);HLSI.attachMedia(a);
+        HLSI.on(Hls.Events.ERROR,function(e,d){if(d&&d.fatal&&A===a&&HLSI===h&&a.onerror){a.onerror();}});
         var p=a.play();if(p&&p.catch){p.catch(function(){});}
       }else if(a.onerror){a.onerror();}
     });
@@ -763,16 +767,18 @@ function renderTimes(){
 
 /* مشغل الفيديو (ملف مجاور للصفحة) */
 var V=null,vT=null,vHide=null,vSave=0,vTile=null,VHLS=null,vWd=null;
-function vSrc(u){
+var vSeq=0,vDead=false,vTry='';
+function vSrc(u,force){
   if(VHLS){try{VHLS.destroy();}catch(e){}VHLS=null;}
-  var v=V;
-  if(/\.m3u8(\?|$)/i.test(u)&&!v.canPlayType('application/vnd.apple.mpegurl')){
+  var v=V,seq=++vSeq;
+  if(/\.m3u8(\?|$)/i.test(u)&&(force||!v.canPlayType('application/vnd.apple.mpegurl'))){
     ensureHls(function(ok){
-      if(V!==v)return;
+      if(V!==v||seq!==vSeq)return;
       if(ok&&window.Hls&&Hls.isSupported()){
-        VHLS=new Hls();VHLS.loadSource(u);VHLS.attachMedia(v);
-        VHLS.on(Hls.Events.ERROR,function(e,d){if(d&&d.fatal){vWhy='HLS: '+d.type+' / '+d.details+(d.response&&d.response.code?' ('+d.response.code+')':'');}if(d&&d.fatal&&V===v&&v.onerror){v.onerror();}});
+        var h=VHLS=new Hls();h.loadSource(u);h.attachMedia(v);
+        h.on(Hls.Events.ERROR,function(e,d){if(!d||!d.fatal||VHLS!==h)return;vWhy='HLS: '+d.type+' / '+d.details+(d.response&&d.response.code?' ('+d.response.code+')':'');if(V===v&&v.onerror){v.onerror();}});
         var p=v.play();if(p&&p.catch){p.catch(function(){});}
+      }else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=u;var q=v.play();if(q&&q.catch){q.catch(function(){});}
       }else{vWhy=ok?'المتصفح لا يدعم MSE/HLS':'تعذّر تحميل hls.js من الإنترنت';if(v.onerror){v.onerror();}}
     });
     return;
@@ -783,7 +789,16 @@ function vArm(live){
   if(vWd){clearTimeout(vWd);vWd=null;}
   if(!live)return;
   var me=V;
-  vWd=setTimeout(function(){if(V===me&&me.readyState<3&&me.onerror){me.onerror();}},15000);
+  vWd=setTimeout(function(){vWd=null;if(V===me&&me.readyState<3&&me.onerror){me.onerror();}},15000);
+}
+/* رؤيا: اطلب رابط البث الحالي كما يفعل مشغّل موقعها؛ cb(الرابط أو '' ، سبب الفشل) */
+function vTicket(id,cb){
+  var x=new XMLHttpRequest(),done=false;
+  function end(u,why){if(done)return;done=true;cb(u,why);}
+  x.onload=function(){var u='';try{u=String(JSON.parse(x.responseText).data.secured_url||'');}catch(e){}end(u.indexOf('https://')===0?u:'','HTTP '+x.status);};
+  x.onerror=function(){end('','CORS / network');};
+  x.ontimeout=function(){end('','timeout');};
+  try{x.open('GET','https://ticket.roya-tv.com/api/v5/fastchannel/'+id+'?device_type=1',true);x.timeout=8000;x.send();}catch(e){end('','request error');}
 }
 function vKey(){return 'vpos_'+(vTile?vTile.file:'');}
 function vFmt(s){s=Math.floor(s||0);var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return (h>0?h+':'+pad(m):m)+':'+pad(s%60);}
@@ -797,7 +812,8 @@ function vUpd(){
   if(scr!=='video'||!V)return;
   var st='',d=V.duration;
   if(V.error){st='تعذّر تشغيل الفيديو';}
-  else if(V.seeking||(V.readyState<3&&!V.paused)){st='جارٍ التحميل…';}
+  else if(vDead){st='تعذّر تشغيل القناة';}
+  else if(V.seeking||(V.readyState<3&&!V.paused)){st='جارٍ التحميل…'+vTry;}
   else if(V.paused){st='متوقف مؤقتاً ❚❚';}
   else{st='يعمل الآن ▶';}
   $('vSt').innerHTML=st;
@@ -812,6 +828,7 @@ function vSeek(dt){
 }
 function vToggle(){
   if(!V)return;
+  if(vDead){var t=vTile;closeVideo();openVideo(t);return;}
   if(V.paused){var p=V.play();if(p&&p.catch){p.catch(function(){});}}else{V.pause();}
   vShow();vUpd();
 }
@@ -826,20 +843,36 @@ function openVideo(t){
   var resume=0;
   try{resume=parseInt(localStorage.getItem(vKey())||'0',10)||0;}catch(e){}
   V.onloadedmetadata=function(){if(resume>0&&resume<V.duration-15){try{V.currentTime=resume;}catch(e){}}};
-  V.onplaying=function(){vShow();vUpd();};
+  V.onplaying=function(){
+    if(vWd){clearTimeout(vWd);vWd=null;}
+    tries=0;vTry='';
+    if(t.live){try{localStorage.setItem(okKey,srcs[si]);}catch(e){}}
+    vShow();vUpd();
+  };
   V.onpause=function(){vShow();vUpd();vSavePos();};
-  V.onwaiting=vUpd;V.onseeked=vUpd;
+  /* بث مباشر توقّف أثناء التشغيل: انتظر 15 ثانية ثم جرّب الرابط التالي */
+  V.onwaiting=function(){if(t.live&&!vDead&&!vWd&&!V.paused){vArm(true);}vUpd();};
+  V.onseeked=vUpd;
   V.ontimeupdate=function(){vUpd();var n=Date.now();if(n-vSave>5000){vSave=n;vSavePos();}};
-  V.onended=function(){vUpd();vShow();try{localStorage.setItem(vKey(),'0');}catch(e){}};
-  var srcs=[t.file].concat(t.alt||[]),si=0;
+  V.onended=function(){if(t.live){if(V.onerror){V.onerror();}return;}vUpd();vShow();try{localStorage.setItem(vKey(),'0');}catch(e){}};
+  var srcs=[t.file].concat(t.alt||[]),si=0,tries=0,okKey='vok_'+t.t;
+  vDead=false;vTry='';vWhy='';var rvNote='';
+  /* ابدأ بآخر رابط نجح لهذه القناة */
+  if(t.live){try{var last=srcs.indexOf(localStorage.getItem(okKey));if(last>0){srcs.unshift(srcs.splice(last,1)[0]);}}catch(e){}}
   V.onerror=function(){
-    if(si<srcs.length-1){
-      si++;vSrc(srcs[si]);vArm(t.live);
+    /* البث المباشر: جولة ثانية على كل الروابط بمشغل hls.js */
+    if(vDead)return;
+    tries++;
+    if(tries<srcs.length*(t.live?2:1)){
+      si=(si+1)%srcs.length;
+      vTry=srcs.length>1?' (الرابط '+(si+1)+' من '+srcs.length+')':'';
+      vSrc(srcs[si],t.live&&tries>=srcs.length);vArm(t.live);
       var p2=V.play();if(p2&&p2.catch){p2.catch(function(){});}
-      return;
+      vUpd();return;
     }
+    vDead=true;if(vWd){clearTimeout(vWd);vWd=null;}
     var m=$('vMsg');
-    m.innerHTML='لم أتمكن من تشغيل الفيديو.<br>'+(vWhy?'<small style="font-size:26px;opacity:.8;direction:ltr;unicode-bidi:embed">'+vWhy+' • '+wvVer()+'</small><br>':'')+(t.file.indexOf('http')===0?'تأكد من اتصال الإنترنت ثم حاول مرة أخرى.':'تأكد أن الملف <b>'+t.file+'</b> موجود في نفس مجلد الصفحة، وأنه بصيغة MP4 (H.264).');
+    m.innerHTML='لم أتمكن من تشغيل الفيديو.<br>'+(vWhy?'<small style="font-size:26px;opacity:.8;direction:ltr;unicode-bidi:embed">'+vWhy+rvNote+' • '+wvVer()+'</small><br>':'')+(t.file.indexOf('http')===0?(srcs.length>1?'جُرّبت '+srcs.length+' روابط ولم يعمل أي منها.':'لا يتوفر لهذه القناة إلا رابط واحد، وهو لا يعمل الآن.')+'<br>تأكد من اتصال الإنترنت، أو اضغط موافق للمحاولة مرة أخرى.':'تأكد أن الملف <b>'+t.file+'</b> موجود في نفس مجلد الصفحة، وأنه بصيغة MP4 (H.264).');
     m.style.display='block';$('vOv').className='on';vUpd();
   };
   $('vw').onclick=vToggle;
@@ -848,8 +881,21 @@ function openVideo(t){
     var r=$('vBar').getBoundingClientRect();
     if(V.duration&&isFinite(V.duration)){V.currentTime=V.duration*Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));vShow();vUpd();}
   };
-  vSrc(srcs[0]);vArm(t.live);
-  var pr=V.play();if(pr&&pr.catch){pr.catch(function(){});}
+  var me=V;
+  function start(){
+    vSrc(srcs[0]);vArm(t.live);
+    var pr=V.play();if(pr&&pr.catch){pr.catch(function(){});}
+    vUpd();
+  }
+  if(t.rv){
+    vTry=' (طلب رابط البث)';
+    vTicket(t.rv,function(u,why){
+      if(V!==me)return;
+      vTry='';
+      if(u){var k=srcs.indexOf(u);if(k>-1){srcs.splice(k,1);}srcs.unshift(u);}else{rvNote=' • ticket: '+why;}
+      start();
+    });
+  }else{start();}
   vUpd();
   if(vT){clearInterval(vT);}
   vT=setInterval(vUpd,1000);
@@ -1360,21 +1406,47 @@ var RUQ=[
 /* ================= IPTV — قنوات بث مباشر بروابط مفتوحة ================= */
 var IP_ALL=[
  {id:'ip_isl',t:'قنوات إسلامية',who:'قرآن • سنّة • تفسير • دعوة — بث مباشر',k:'video',live:1,unit:'قناة',c:['#14937f','#0b5560'],items:[
-   {t:'قناة القرآن الكريم — السعودية',pk:'q',u:['https://win.holol.com/live/quran/playlist.m3u8']},
-   {t:'قناة السنة النبوية — المسجد النبوي',pk:'s',u:['https://win.holol.com/live/sunnah/playlist.m3u8']}
+   {t:'قناة القرآن الكريم — السعودية',pk:'q',u:['https://win.holol.com/live/quran/playlist.m3u8',
+      'https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/index.m3u8',
+      'http://m.live.net.sa:1935/live/quran/playlist.m3u8']},
+   {t:'قناة السنة النبوية — المسجد النبوي',pk:'s',u:['https://win.holol.com/live/sunnah/playlist.m3u8',
+      'https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/index.m3u8',
+      'http://m.live.net.sa:1935/live/sunnah/playlist.m3u8']}
  ]},
  {id:'ip_ar',t:'القنوات العربية',who:'أردنية • سورية • لبنانية • عربية — بث مباشر',k:'video',live:1,unit:'قناة',c:['#2c66da','#12399a'],items:[
-   {t:'التلفزيون الأردني',pk:'jtv',u:['https://jrtv-live.ercdn.net/jordanhd/jordanhd.m3u8','https://jrtv-live.ercdn.net/jordantv/play.m3u8']},
-   {t:'الجزيرة',pk:'aj',u:['https://live-hls-apps-aja-fa.getaj.net/AJA/index.m3u8']},
-   {t:'الجزيرة مباشر',pk:'ajm',u:['https://live-hls-apps-ajm-fa.getaj.net/AJM/index.m3u8']},
-   {t:'العربية',pk:'arb',u:['https://live.alarabiya.net/alarabiapublish/alarabiya.smil/playlist.m3u8']},
-   {t:'الحدث',pk:'had',u:['https://av.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8']},
-   {t:'سكاي نيوز عربية',pk:'sky',u:['https://stream.skynewsarabia.com/hls/sna.m3u8']},
-   {t:'فرانس 24 بالعربية',pk:'f24',u:['https://live.france24.com/hls/live/2037222/F24_AR_HI_HLS/master_5000.m3u8']},
-   {t:'DW عربية',pk:'dw',u:['https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/index.m3u8']}
+   {t:'التلفزيون الأردني',pk:'jtv',u:['https://jrtv-live.ercdn.net/jordanhd/jordanhd.m3u8',
+      'https://jrtv-live.ercdn.net/jordantv/play.m3u8']},
+   {t:'الجزيرة',pk:'aj',u:['https://live-hls-apps-aja-fa.getaj.net/AJA/index.m3u8',
+      'https://live-hls-apps-aja-v3-fa.getaj.net/AJA/index.m3u8',
+      'https://live-hls-web-aja-fa.thehlive.com/AJA/index.m3u8',
+      'https://live-hls-web-aja.getaj.net/AJA/index.m3u8',
+      'https://live-hls-v3-aja.getaj.net/AJA-V3/index.m3u8']},
+   {t:'الجزيرة مباشر',pk:'ajm',u:['https://live-hls-apps-ajm-fa.getaj.net/AJM/index.m3u8',
+      'https://live-hls-apps-ajm-v3-fa.getaj.net/AJM/index.m3u8',
+      'https://live-hls-web-ajm-fa.thehlive.com/AJM/index.m3u8',
+      'https://live-hls-web-ajm.getaj.net/AJM/index.m3u8']},
+   {t:'العربية',pk:'arb',u:['https://live.alarabiya.net/alarabiapublish/alarabiya.smil/playlist.m3u8',
+      'https://shd-gcp-live.edgenextcdn.net/live/bitmovin-alarabiya/7f90de73d777d04f3dada92f90d35c44/index.m3u8',
+      'https://r.eu.cdn-redge.media/livehls/oeu/mt/live/al_arabiya/live.livx/playlist.m3u8',
+      'https://live.alarabiya.net/alarabiapublish/alarabiya.smil/alarabiapublish/alarabiya_1080p/chunks.m3u8']},
+   {t:'الحدث',pk:'had',u:['https://av.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8',
+      'https://shd-gcp-live.edgenextcdn.net/live/bitmovin-hadath/2ff87ec4c2f3ede35295a20637d9f8fd/index.m3u8',
+      'https://live.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8']},
+   {t:'سكاي نيوز عربية',pk:'sky',u:['https://stream.skynewsarabia.com/hls/sna.m3u8',
+      'https://live-stream.skynewsarabia.com/c-horizontal-channel/horizontal-stream/index.m3u8',
+      'https://stream.skynewsarabia.com/ott/ott.m3u8']},
+   {t:'فرانس 24 بالعربية',pk:'f24',u:['https://live.france24.com/hls/live/2037222/F24_AR_HI_HLS/master_5000.m3u8',
+      'https://live.france24.com/hls/live/2037222-b/F24_AR_HI_HLS/master_5000.m3u8',
+      'https://live.france24.com/hls/live/2037222/F24_AR_HI_HLS/master_2300.m3u8',
+      'https://live.france24.com/hls/live/2037222-b/F24_AR_HI_HLS/master_2300.m3u8']},
+   {t:'DW عربية',pk:'dw',u:['https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/index.m3u8',
+      'https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/master.m3u8']},
+    {t:'رؤيا',pk:'roya',rv:1,u:['https://live.kwikmotion.com/royatvpublic/royatv.smil/playlist.m3u8']},
+    {t:'عمّان تي في',pk:'amm',u:['https://ammantv-live.ercdn.net/ammantvhd/ammantvhd.m3u8',
+      'https://htvnksdtmy.erbvr.com/ammantvhd/ammantvhd.m3u8']}
  ]},
  {id:'ip_spt',t:'القنوات الرياضية',who:'رياضة — بث مباشر',k:'video',live:1,unit:'قناة',c:['#1f9d55','#0d5c33'],items:[]},
- {id:'ip_kid',t:'قنوات الأطفال',who:'كرتون • برامج أطفال • باب الحارة — بث مباشر',k:'video',live:1,unit:'قناة',c:['#c98a2c','#7a4510'],items:[]},
+ {id:'ip_kid',t:'قنوات الأطفال',who:'كرتون • برامج أطفال — بث مباشر',k:'video',live:1,unit:'قناة',c:['#c98a2c','#7a4510'],items:[]},
  {id:'ip_mov',t:'أفلام ومسلسلات',who:'MBC • روتانا • الدراما المصرية • سينما — بث مباشر',k:'video',live:1,unit:'قناة',c:['#b43fcb','#681a8c'],items:[]}
 ];
 /* القنوات المدمجة في الكود تُحفظ في base، ثم يُعاد بناء القوائم من base + قائمة الإنترنت */
@@ -1410,11 +1482,9 @@ var IPPIN=[
  {pk:'dw',c:1,t:'DW عربية',a:/((^| )dw( |$)|دي دبليو)/},
  {pk:'sp',c:3,t:'سبيستون',a:/(spacetoon|space toon|سبيستون|سبيس ?تون)/},
  {pk:'cn',c:3,t:'كرتون نتورك بالعربية',a:/(cartoon ?network|كرتون ?نتورك|(^| )سي ان( |$)|(^| )cn( |$))/},
- {pk:'mj',c:3,t:'ماجد',a:/(^| )(majid|majed|ماجد)( |$)/},
  {pk:'tj',c:3,t:'توم وجيري',a:/(tom( and| n)? jerry|توم( و| اند)? ?جيري)/},
  {pk:'co',c:3,t:'المحقق كونان',a:/(conan|كونان)/},
- {pk:'sa',c:3,t:'سالي',a:/((^| )sally|(^| )سالي)/},
- {pk:'bh',c:3,t:'باب الحارة',a:/(bab ?(al|el) ?ha+ra|باب ?الحاره)/}
+ {pk:'sa',c:3,t:'سالي',a:/((^| )sally|(^| )سالي)/}
 ];
 var IPPT={};(function(){var i;for(i=0;i<IPPIN.length;i++){IPPT[IPPIN[i].pk]=IPPIN[i].t;}})();
 var RX_KID=/(kids|kidz|اطفال|اولاد|كيدز|toyor|طيور|baraem|براعم|jeem|(^| )جيم|karameesh|كراميش|cartoon|كرتون|nickelodeon|نيكلوديون|pogo|بوجو|mbc ?3|ام بي سي ?3|bamboo|بامبو|boomerang|بومرانج|disney|ديزني|toon|توون|animation|mr ?bean|pocoyo|spongebob|peppa|masha|ماشا|baby ?shark)/;
@@ -1430,9 +1500,13 @@ var RX_SYLB=/(syria|syrian|سوريا|سوري|lebanon|lebanese|لبنان|لب�
 var IP_GEN=['news','general','entertainment','public','family','lifestyle','music','culture','documentary','classic','comedy'];
 function ipG(g,x){return (';'+(g||'').toLowerCase().replace(/\s+/g,'')+';').indexOf(';'+x+';')>-1;}
 var IP_BAD=/christ|jesus|church|coptic|bible|sat-?7|miracle|agape|aghapy|logos|noursat|kto|المسيح|مسيحي|قبط|الكرمة|نور ?سات|كنيس|xxx|adult/i;
+/* قنوات محذوفة بطلب المستخدم: ماجد (قناة الأطفال فقط، لا الأسماء المشابهة) وباب الحارة */
+var RX_DEL=/(^ (قناه )?(majid|majed|ماجد)( (kids|tv|hd|اطفال|الاطفال|للاطفال))* $|bab ?(al|el) ?ha+ra|باب ?الحاره)/;
+function ipBlocked(n){return RX_DEL.test(ipN(n));}
 /* تصنيف القناة: يعيد القسم (c) والتثبيت (pk) والترتيب (r) أو null لتجاهلها */
 function ipClass(n,g){
   var s=ipN(n),i,P,j;
+  if(ipBlocked(n)){return null;}
   for(i=0;i<IPPIN.length;i++){
     P=IPPIN[i];
     if(P.a.test(s)&&(!P.b||P.b.test(s))&&(!P.x||!P.x.test(s))){return {c:P.c,pk:P.pk,r:0};}
@@ -1448,6 +1522,69 @@ function ipClass(n,g){
   for(j=0;j<IP_GEN.length;j++){if(ipG(g,IP_GEN[j])){return {c:1,pk:'',r:ipG(g,'news')?10:20};}}
   return null;
 }
+/* روابط احتياطية (من مشروع iptv-org) مفهرسة باسم القناة */
+var IPBK={"alarabiyaenglish":["https://live.alarabiya.net/alarabiapublish/english/playlist_dvr.m3u8","https://shls-live-enc.edgenextcdn.net/out/v1/07a6ab2d57b2453a91bbdd2d46b5865a/index.m3u8"],
+"alarabytv":["https://live.kwikmotion.com/alaraby1live/alaraby_abr/playlist.m3u8","https://stream.ads.ottera.tv/playlist.m3u8?network_id=5616"],
+"alarabytv2":["https://live.kwikmotion.com/alaraby2live/alaraby2.smil/playlist.m3u8","https://stream.ads.ottera.tv/playlist.m3u8?network_id=5617","https://origin-cae-t482536.cdn.nextologies.com/63d8c759c5db83b4/25c4f89d27a79014ALA2306/playlist.m3u8"],
+"alaraby2tv":["https://live.kwikmotion.com/alaraby2live/alaraby2.smil/playlist.m3u8","https://stream.ads.ottera.tv/playlist.m3u8?network_id=5617","https://origin-cae-t482536.cdn.nextologies.com/63d8c759c5db83b4/25c4f89d27a79014ALA2306/playlist.m3u8"],
+"alekhbariya":["https://shd-gcp-live.edgenextcdn.net/live/bitmovin-al-ekhbaria/297b3ef1cd0633ad9cfba7473a686a06/index.m3u8","https://cdn-globecast.akamaized.net/live/eds/al_ekhbariya/hls_roku/index.m3u8"],
+"alarabiyaalhadath":["https://av.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-hadath/2ff87ec4c2f3ede35295a20637d9f8fd/index.m3u8","https://live.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8"],
+"alhadath":["https://av.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-hadath/2ff87ec4c2f3ede35295a20637d9f8fd/index.m3u8","https://live.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8"],
+"alhadathtv":["https://av.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-hadath/2ff87ec4c2f3ede35295a20637d9f8fd/index.m3u8","https://live.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8"],
+"aljazeera":["https://live-hls-apps-aja-fa.getaj.net/AJA/01.m3u8","https://live-hls-apps-aja-fa.getaj.net/AJA/index.m3u8","https://live-hls-apps-aja-v3-fa.getaj.net/AJA/index.m3u8","https://live-hls-web-aja-fa.thehlive.com/AJA/index.m3u8","https://n-5-1.eu.cdn-redge.media/livehls/oeu/mt/live/al_jazeera_arabic/live.livx/playlist.m3u8","https://live-hls-v3-aja.getaj.net/AJA-V3/index.m3u8"],
+"aljazeeraarabic":["https://live-hls-apps-aja-fa.getaj.net/AJA/01.m3u8","https://live-hls-apps-aja-fa.getaj.net/AJA/index.m3u8","https://live-hls-apps-aja-v3-fa.getaj.net/AJA/index.m3u8","https://live-hls-web-aja-fa.thehlive.com/AJA/index.m3u8","https://n-5-1.eu.cdn-redge.media/livehls/oeu/mt/live/al_jazeera_arabic/live.livx/playlist.m3u8","https://live-hls-v3-aja.getaj.net/AJA-V3/index.m3u8"],
+"aljazeeraenglish":["https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8","https://live-hls-apps-aje-v3-fa.getaj.net/AJE/index.m3u8","https://live-hls-web-aje-fa.thehlive.com/AJE/index.m3u8","https://live-hls-web-aje-gcp.thehlive.com/AJE/04.m3u8","https://n-5-1.eu.cdn-redge.media/livehls/oeu/mt/live/al_jazeera_english/live.livx/playlist.m3u8","https://streams.tangotv.in/ALJAZEERAHD/ORIGIN/index.m3u8"],
+"aljazeeradocumentary":["https://live-hls-apps-ajd-fa.getaj.net/AJD/index.m3u8","https://live-hls-apps-ajd-v3-fa.getaj.net/AJD/index.m3u8","https://live-hls-web-ajd-fa.thehlive.com/AJD/index.m3u8","https://live-hls-web-ajd.getaj.net/AJD/index.m3u8"],
+"aljazeeramubasher":["https://live-hls-apps-ajm-fa.getaj.net/AJM/index.m3u8","https://live-hls-apps-ajm-v3-fa.getaj.net/AJM/index.m3u8","https://live-hls-web-ajm-fa.thehlive.com/AJM/index.m3u8","https://live-hls-web-ajm.getaj.net/AJM/index.m3u8"],
+"aljazeeramubasher24":["https://live-hls-apps-ajm24-fa.getaj.net/AJM24/index.m3u8","https://live-hls-web-ajm24-fa.getaj.net/AJM24/index.m3u8","https://live-hls-web-ajm24-fa.thehlive.com/AJM24/index.m3u8"],
+"aljazeeramubasherbroadcast2":["https://live-hls-apps-ajm2-fa.getaj.net/AJM2/index.m3u8","https://live-hls-web-ajm2-fa.getaj.net/AJM2/index.m3u8","https://live-hls-web-ajm2-fa.thehlive.com/AJM2/index.m3u8"],
+"alrayyanalqadeem":["https://alrayyancdn.vidgyor.com/pub-nooldraybinbdh/liveabr/playlist_dvr.m3u8","https://streamer7.qna.org.qa/148136781_live/148136781_63.sdp/playlist.m3u8"],
+"alrayyanoldtv":["https://alrayyancdn.vidgyor.com/pub-nooldraybinbdh/liveabr/playlist_dvr.m3u8","https://streamer7.qna.org.qa/148136781_live/148136781_63.sdp/playlist.m3u8"],
+"alrayyan":["https://alrayyancdn.vidgyor.com/pub-noalrayy3pwz0l/liveabr/playlist_dvr.m3u8","https://streamer7.qna.org.qa/148136749_live/148136749_296.sdp/playlist.m3u8"],
+"alrayyantv":["https://alrayyancdn.vidgyor.com/pub-noalrayy3pwz0l/liveabr/playlist_dvr.m3u8","https://streamer7.qna.org.qa/148136749_live/148136749_296.sdp/playlist.m3u8"],
+"alsaudiya":["https://shd-gcp-live.edgenextcdn.net/live/bitmovin-saudi-tv/2ad66056b51fd8c1b624854623112e43/index.m3u8","https://cdn-globecast.akamaized.net/live/eds/saudi_tv/hls_roku/index.m3u8"],
+"alarabiya":["https://live.alarabiya.net/alarabiapublish/alarabiya.smil/playlist.m3u8","https://live.alarabiya.net/alarabiapublish/alarabiya.smil/alarabiapublish/alarabiya_1080p/chunks.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-alarabiya/7f90de73d777d04f3dada92f90d35c44/index.m3u8","https://r.eu.cdn-redge.media/livehls/oeu/mt/live/al_arabiya/live.livx/playlist.m3u8"],
+"althania":["https://live.kwikmotion.com/syriatv02live/syriatv02.smil/playlist.m3u8","https://qmcconnect.qa/api/StreamServices/arabictvsyria2/master.m3u8"],
+"ammantv":["https://ammantv-live.ercdn.net/ammantvhd/ammantvhd.m3u8","https://htvnksdtmy.erbvr.com/ammantvhd/ammantvhd.m3u8"],
+"asharqnews":["https://live-news.asharq.com/asharq.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-asharq/10ae30c64e21402c8116a7fb1e5aa789/index.m3u8","https://svs.itworkscdn.net/bloomberarlive/bloomberg.smil/playlist_dvr.m3u8"],
+"atfalmawahebtv":["https://5aafcc5de91f1.streamlock.net/atfal1.com/atfal2/playlist.m3u8","https://5d658d7e9f562.streamlock.net/atfal1.com/atfal2/playlist.m3u8"],
+"cna":["https://live.creacast.com/cna/stream/playlist.m3u8","https://live.creacast.com/cna/smil:cna.smil/playlist.m3u8"],
+"chadatv":["https://edge13.vedge.infomaniak.com/livecast/ik:chadatv/manifest.m3u8","https://edge19.vedge.infomaniak.com/livecast/ik:chadatv/playlist.m3u8"],
+"elwatania1":["https://sw1.tanitweb.net/TunisiaTV/_definst_/watania1/chunklist.m3u8","https://sw1.tanitweb.net/TunisiaTV/_definst_/watania1/playlist.m3u8?DVR","https://sw1.tanitweb.net/TunisiaTV/_definst_/watania2/chunklist.m3u8"],
+"france24arabic":["https://live.france24.com/hls/live/2037222-b/F24_AR_HI_HLS/master_5000.m3u8","https://live.france24.com/hls/live/2037222/F24_AR_HI_HLS/master_5000.m3u8","https://live.france24.com/hls/live/2037222-b/F24_AR_HI_HLS/master_2300.m3u8","https://live.france24.com/hls/live/2037222/F24_AR_HI_HLS/master_2300.m3u8","https://live.france24.com/hls/live/2037222-b/F24_AR_HI_HLS/master_900.m3u8","https://live.france24.com/hls/live/2037222/F24_AR_HI_HLS/master_900.m3u8"],
+"halabtodaytv":["https://halabtoday-live.lg.mncdn.com/halabtoday/livestream/playlist.m3u8","https://mn-nl.mncdn.com/halabtoday/livestream/index.m3u8"],
+"ktv1":["https://kwtktv1ta.cdn.mangomolo.com/ktv1/smil:ktv1.stream.smil/chunklist.m3u8","https://cdn-globecast.akamaized.net/live/eds/kuwait_tv1/hls_roku/index.m3u8"],
+"ktvnews":["https://kwtkbta.cdn.mangomolo.com/kb/smil:kb.stream.smil/chunklist.m3u8","https://kwtktvata.cdn.mangomolo.com/ktva/smil:ktva.stream.smil/chunklist.m3u8","https://cdn-globecast.akamaized.net/live/eds/ktv_al_akhbar/hls_roku/ktv_al_akhbar.m3u8"],
+"mbcfm":["https://dbbv9umqcd7cs.cloudfront.net/out/v1/db15b75c3cc0400c91961468d6a232ac/index.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-fm/3f36f7db6086acf058dc51681c87f8ad/index.m3u8"],
+"mbcmasr":["https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-masr/956eac069c78a35d47245db6cdbb1575/index.m3u8","https://r.eu.cdn-redge.media/livehls/oeu/mt/live/mbc_masr/live.livx/playlist.m3u8"],
+"mbcmood":["https://shd-gcp-live.edgenextcdn.net/live/bitmovin-wanasah/13e82ea6232fa647c43b26e8a41f173d/index.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-mood/78367bf48ccdba501d0d014a10c21031/index.m3u8"],
+"mbcpersia":["https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-persia/818ee8e4b592dc497608f066d825bfb4/index.m3u8","https://hls.mbcpersia.live/hls/stream.m3u8"],
+"mtvlebanon":["https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mtv-lebanon/b8ebb2a5affb812f1541712adde10e26/index.m3u8","https://r.eu.cdn-redge.media/livehls/oeu/mt/live/mtv_lebanon/live.livx/playlist.m3u8"],
+"medi1tvafrique":["https://cdn.live.easybroadcast.io/abr_corp/83_medi1tv-afrique_tm7tu45/playlist.m3u8","https://cdn.live.easybroadcast.io/abr_corp/83_medi1tv-afrique_tm7tu45/playlist_dvr.m3u8"],
+"medi1tvarabic":["https://cdn.live.easybroadcast.io/abr_corp/83_medi1tv-arabic_g90v4ec/playlist.m3u8","https://cdn.live.easybroadcast.io/abr_corp/83_medi1tv-arabic_g90v4ec/playlist_dvr.m3u8"],
+"medi1tvmaghreb":["https://cdn.live.easybroadcast.io/abr_corp/83_medi1tv-maghreb_jnbspmg/playlist.m3u8","https://cdn.live.easybroadcast.io/abr_corp/83_medi1tv-maghreb_jnbspmg/playlist_dvr.m3u8"],
+"nabaatv":["https://5dc7d824154d0.streamlock.net/live/Nabaa/playlist.m3u8","https://655ca86f46b1f.streamlock.net/live/Nabaa/playlist.m3u8"],
+"omantv":["https://partneta.cdn.mgmlcdn.com/omantv/smil:omantv.stream.smil/chunklist.m3u8","https://cdn-globecast.akamaized.net/live/eds/oman_tv/hls_roku/index.m3u8"],
+"panoramafm":["https://d6izdil55uftn.cloudfront.net/out/v1/0a06d1d6377c47edbd48721ed724bd08/index.m3u8","https://shd-gcp-live.edgenextcdn.net/live/bitmovin-panorama-fm/ea22f3856a1b772f793c43eb5d1c0636/index.m3u8"],
+"payamtv":["https://hlspackager.akamaized.net/live/DB/PAYAM_TV/HLS/PAYAM_TV.m3u8","https://media2.streambrothers.com:1936/8218/8218/playlist.m3u8"],
+"qbc":["https://googlecdn1.alkassdigital.net/livestream/qbc4/main.m3u8","https://live.kwikmotion.com/qbusinesslive/qbusiness.smil/playlist.m3u8"],
+"qatartelevision":["https://live.kwikmotion.com/qtv1live/qtv1.smil/playlist.m3u8","https://qatartv.akamaized.net/hls/live/20000609/qtv1/master.m3u8","https://streamer1.qna.org.qa/148133273_live/148133273_63.sdp/playlist.m3u8"],
+"qatartelevision2":["https://live.kwikmotion.com/qtv2live/qtv2.smil/playlist.m3u8","https://qatartv.akamaized.net/hls/live/20000611/qtv2/master.m3u8","https://qatartv.akamaized.net/hls/live/2026574/qtv2/master.m3u8","https://streamer1.qna.org.qa/148133344_live/148133344_63.sdp/playlist.m3u8"],
+"rudawtv":["https://hlspackager.akamaized.net/live/DB/RUDAW/HLS/RUDAW.m3u8","https://live.rudaw.net/hls/rudaw-tv/master.m3u8"],
+"saabtv":["https://ap02.iqplay.tv:8082/iqb8002/s03btv/playlist.m3u8","https://cd198.anystream.uk:9092/iqapp/s03btv/playlist.m3u8"],
+"samarratv":["https://live.samarra.tv/samarra/ngrp:live_abr/playlist.m3u8","https://live.bradosti.net/live/samaraweb_playlist.m3u8","https://samarra.tv/proxy.php/hls/main3/playlist.m3u8"],
+"sharjahtv":["https://live.kwikmotion.com/smc1live/smc1tv.smil/playlist.m3u8","https://cdn-globecast.akamaized.net/live/eds/sharjah_tv/hls_roku/index.m3u8"],
+"skynewsarabiavertical":["https://stream.skynewsarabia.com/vertical/vertical.m3u8","https://live-stream.skynewsarabia.com/c-vertical-channel/vertical-stream/index.m3u8"],
+"syriatv":["https://live.kwikmotion.com/syriatvlive/syriatv.smil/playlist_dvr.m3u8","https://qmcconnect.qa/api/StreamServices/arabictvsyria1/master.m3u8","https://stream.ads.ottera.tv/playlist.m3u8?network_id=6017","https://svs.itworkscdn.net/syriatvlive/syriatv.smil/playlist_dvr.m3u8"],
+"tanasuhtv":["https://kilolink.pulsarstarsolutions.com/live/smil:tanasuhtv.smil/manifest.m3u8","https://tip.stream.tanasuh.tv:4434/live/smil:tanasuhtv.smil/playlist.m3u8"],
+"waartv":["https://hlspackager.akamaized.net/live/DB/WAAR_HD/HLS/WAAR_HD.m3u8","https://live.kwikmotion.com/waarmedialive/waarmedia.smil/waarmediapublish/waarmedia_source/chunks.m3u8"],
+"zagros":["https://5a3ed7a72ed4b.streamlock.net/zagrostv/SMIL:myStream.smil/playlist.m3u8","https://hlspackager.akamaized.net/live/DB/ZAGROS_TV/HLS/ZAGROS_TV.m3u8"],
+"zagrostv":["https://5a3ed7a72ed4b.streamlock.net/zagrostv/SMIL:myStream.smil/playlist.m3u8","https://hlspackager.akamaized.net/live/DB/ZAGROS_TV/HLS/ZAGROS_TV.m3u8"]};
+function ipBack(t,u){
+  var k=ipKey(t),b=IPBK.hasOwnProperty(k)?IPBK[k]:[],r=u.slice(),i;
+  for(i=0;i<b.length&&r.length<8;i++){if(r.indexOf(b[i])<0){r.push(b[i]);}}
+  return r;
+}
 function ipMerge(list){
   var i,j,c,it,P,b,key,arr,pm={},seen={},oth=[[],[],[],[],[]];
   for(c=0;c<IP_ALL.length;c++){
@@ -1460,16 +1597,17 @@ function ipMerge(list){
   for(i=0;i<IPPIN.length;i++){seen[ipKey(IPPIN[i].t)]=1;}
   for(i=0;i<list.length;i++){
     it=list[i];
+    if(it.k==='mj'||it.k==='bh'||ipBlocked(it.t))continue;
     if(it.k){
       P=pm[it.k];
       if(!P){P=pm[it.k]={t:IPPT[it.k],pk:it.k,u:[]};}
-      if(P.u.indexOf(it.u)<0&&P.u.length<4){P.u.push(it.u);}
+      if(P.u.indexOf(it.u)<0&&P.u.length<8){P.u.push(it.u);}
       continue;
     }
     key=ipKey(it.t);
     if(!key)continue;
     if(seen[key]){
-      if(seen[key]!==1&&seen[key].a.length<4&&seen[key].a.indexOf(it.u)<0){seen[key].a.push(it.u);}
+      if(seen[key]!==1&&seen[key].a.length<8&&seen[key].a.indexOf(it.u)<0){seen[key].a.push(it.u);}
       continue;
     }
     it.i=i;it.a=[it.u];seen[key]=it;
@@ -1483,7 +1621,7 @@ function ipMerge(list){
     b=IP_ALL[c].base;
     for(j=0;j<b.length;j++){if(!b[j].pk){arr.push(b[j]);}}
     oth[c].sort(function(x,y){return (x.r-y.r)||(x.i-y.i);});
-    for(j=0;j<oth[c].length&&arr.length<IP_CAP[c];j++){arr.push({t:oth[c][j].t,u:oth[c][j].a});}
+    for(j=0;j<oth[c].length&&arr.length<IP_CAP[c];j++){arr.push({t:oth[c][j].t,u:ipBack(oth[c][j].t,oth[c][j].a)});}
     IP_ALL[c].items=arr.slice(0,IP_CAP[c]);
   }
   ipRebuild();
@@ -1690,7 +1828,7 @@ function dPlayItem(si,i){
   var d=DS[si],it=d.items[i],id='d_'+d.id+'_'+i,t;
   if(d.k==='video'){
     dsel=si;di=i;vRet=1;
-    var us=(it.u instanceof Array)?it.u:[it.u];openVideo({t:it.t,file:us[0],alt:us.slice(1),live:d.live});
+    var us=(it.u instanceof Array)?it.u:[it.u];openVideo({t:it.t,file:us[0],alt:us.slice(1),live:d.live,rv:it.rv});
     return;
   }
   if(A&&A_id===id&&A_state!=='error'&&A_state!=='ended'){plT=A_t;toggleAudio();return;}
