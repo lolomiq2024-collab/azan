@@ -875,7 +875,7 @@ function openVideo(t){
       var p2=V.play();if(p2&&p2.catch){p2.catch(function(){});}
       vUpd();return;
     }
-    vDead=true;if(vWd){clearTimeout(vWd);vWd=null;}
+    vDead=true;if(vWd){clearTimeout(vWd);vWd=null;}if(t.live){try{ipDeadMark(t.t);}catch(e){}}
     var m=$('vMsg');
     m.innerHTML='لم أتمكن من تشغيل الفيديو.<br>'+(vWhy?'<small style="font-size:26px;opacity:.8;direction:ltr;unicode-bidi:embed">'+vWhy+' • '+wvVer()+'</small><br>':'')+(t.file.indexOf('http')===0?(srcs.length>1?'جُرّبت '+srcs.length+' روابط ولم يعمل أي منها.':'لا يتوفر لهذه القناة إلا رابط واحد، وهو لا يعمل الآن.')+'<br>تأكد من اتصال الإنترنت، أو اضغط موافق للمحاولة مرة أخرى.':'تأكد أن الملف <b>'+t.file+'</b> موجود في نفس مجلد الصفحة، وأنه بصيغة MP4 (H.264).');
     m.style.display='block';$('vOv').className='on';vUpd();
@@ -1603,6 +1603,17 @@ function ipBack(t,u){
   for(i=0;i<b.length&&r.length<8;i++){if(r.indexOf(b[i])<0){r.push(b[i]);}}
   return r;
 }
+/* القنوات التي فشلت كل روابطها تُؤخَّر إلى آخر القسم 6 ساعات وتظهر بعلامة ⚠ */
+function ipDeadGet(){var o={};try{o=JSON.parse(localStorage.getItem('ip_dead')||'{}')||{};}catch(e){}return o;}
+function ipDeadMark(title){var o=ipDeadGet();o[ipKey(title)]=Date.now();try{localStorage.setItem('ip_dead',JSON.stringify(o));}catch(e){}}
+function ipDeadSort(arr){
+  var D=ipDeadGet(),now=Date.now(),ok=[],bad=[],j,k;
+  for(j=0;j<arr.length;j++){
+    k=ipKey(arr[j].t);
+    if(D[k]&&now-D[k]<21600000){bad.push({t:arr[j].t+' \u26A0',u:arr[j].u});}else{ok.push(arr[j]);}
+  }
+  return ok.concat(bad);
+}
 function ipMerge(list){
   var i,j,c,it,P,b,key,arr,pm={},seen={},oth=[[],[],[],[],[]];
   for(c=0;c<IP_ALL.length;c++){
@@ -1640,6 +1651,7 @@ function ipMerge(list){
     for(j=0;j<b.length;j++){if(!b[j].pk){arr.push(b[j]);}}
     oth[c].sort(function(x,y){return (x.r-y.r)||(x.i-y.i);});
     for(j=0;j<oth[c].length&&arr.length<IP_CAP[c];j++){arr.push({t:oth[c][j].t,u:ipBack(oth[c][j].t,oth[c][j].a)});}
+    arr=ipDeadSort(arr);
     IP_ALL[c].items=arr.slice(0,IP_CAP[c]);
   }
   ipRebuild();
@@ -1735,15 +1747,20 @@ function wvVer(){var m=/Chrome\/(\d+)/.exec(navigator.userAgent||'');return m?('
 var ipStat='',ipDone=0,ipOk=0,ipRes=[];
 function ipMir(p){return ['https://iptv-org.github.io/iptv/'+p,'https://cdn.jsdelivr.net/gh/iptv-org/iptv@gh-pages/'+p,'https://raw.githubusercontent.com/iptv-org/iptv/gh-pages/'+p];}
 /* مصادر القوائم: تُحمَّل كلها بالتوازي، وكل مصدر له روابط بديلة (mirrors). s=1 يعني قائمة عامة تُفلتر بصرامة */
-var IP_G=[
-  {m:ipMir('languages/ara.m3u'),s:0},
-  {m:ipMir('categories/religious.m3u'),s:1},
-  {m:ipMir('categories/sports.m3u'),s:1},
-  {m:ipMir('categories/kids.m3u'),s:1},
-  {m:ipMir('categories/animation.m3u'),s:1},
-  {m:ipMir('categories/movies.m3u'),s:1},
-  {m:ipMir('categories/series.m3u'),s:1}
-];
+var IP_CC='sa,jo,eg,ae,kw,qa,lb,sy,iq,ma,dz,tn,ly,ps,om,bh,sd,ye'.split(',');
+var IP_G=[{m:ipMir('languages/ara.m3u'),s:0}];
+(function(){var i;
+  for(i=0;i<IP_CC.length;i++){IP_G.push({m:ipMir('countries/'+IP_CC[i]+'.m3u'),s:0});}
+  IP_G.push({m:ipMir('categories/religious.m3u'),s:1});
+  IP_G.push({m:ipMir('categories/sports.m3u'),s:1});
+  IP_G.push({m:ipMir('categories/kids.m3u'),s:1});
+  IP_G.push({m:ipMir('categories/animation.m3u'),s:1});
+  IP_G.push({m:ipMir('categories/movies.m3u'),s:1});
+  IP_G.push({m:ipMir('categories/series.m3u'),s:1});
+  IP_G.push({m:['https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8','https://cdn.jsdelivr.net/gh/Free-TV/IPTV@master/playlist.m3u8'],s:1});
+  IP_G.push({m:ipMir('index.m3u'),s:1});
+})();
+var ipNxt=0;
 var NF={n:0,cb:{}};
 window.__nf=function(id,t){var f=NF.cb[id];if(f){delete NF.cb[id];f(t);}};
 /* جلب نص: أولاً عبر التطبيق نفسه (HomeBridge.fetchText) ثم عبر XHR داخل الصفحة */
@@ -1787,6 +1804,7 @@ function ipPush(){
 }
 function ipFin(){
   ipDone++;
+  if(ipNxt<IP_G.length){ipGrp(ipNxt++,0);}
   if(ipDone>=IP_G.length){ipLd=0;if(!ipOk){ipStat='fail';}ipRefresh();}
 }
 function ipGrp(gi,mi){
@@ -1803,7 +1821,7 @@ function ipLoad(){
   var g;
   if(ipLd)return;
   ipLd=1;ipStat='loading';ipDone=0;ipOk=0;
-  for(g=0;g<IP_G.length;g++){ipGrp(g,0);}
+  ipNxt=0;for(g=0;g<5&&ipNxt<IP_G.length;g++){ipGrp(ipNxt++,0);}
 }
 function ipOpen(){
   var l=null;
