@@ -292,7 +292,7 @@ var TILES=[
  {id:'baq',t:'سورة البقرة',s:'محمد صديق المنشاوي',c:['#a2909d','#6b596a'],k:'audio',
   src:['https://server10.mp3quran.net/minsh/002.mp3','https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/002.mp3','http://server10.mp3quran.net/minsh/002.mp3']},
  {id:'radios',t:'الإذاعات',s:'بث مباشر',c:['#b43fcb','#681a8c'],k:'radios'},
- {id:'iptv',t:'IPTV',s:'قنوات بث مباشر',c:['#e0457b','#8a1c4f'],k:'iptv'},
+ {id:'iptv',t:'IPTV',s:'بث مباشر • أفلام • مسلسلات',c:['#e0457b','#8a1c4f'],k:'iptv'},
  {id:'quran',t:'القرآن الكريم',s:'بصوت القراء',c:['#14937f','#0b5560'],k:'quran'},
  {id:'duroos',t:'دروس إسلامية',s:'الشعراوي • العوضي • والمزيد',c:['#c98a2c','#7a4510'],k:'duroos'},
  {id:'sab',t:'أذكار الصباح',s:'من حصن المسلم',c:['#f28d4e','#d6552a'],k:'adhkar',set:'morning'},
@@ -1363,7 +1363,7 @@ var IP_ALL=[
    {t:'قناة القرآن الكريم — السعودية',pk:'q',u:['https://win.holol.com/live/quran/playlist.m3u8']},
    {t:'قناة السنة النبوية — المسجد النبوي',pk:'s',u:['https://win.holol.com/live/sunnah/playlist.m3u8']}
  ]},
- {id:'ip_ar',t:'القنوات العربية',who:'أردنية وعربية — بث مباشر',k:'video',live:1,unit:'قناة',c:['#2c66da','#12399a'],items:[
+ {id:'ip_ar',t:'القنوات العربية',who:'أردنية • سورية • لبنانية • عربية — بث مباشر',k:'video',live:1,unit:'قناة',c:['#2c66da','#12399a'],items:[
    {t:'التلفزيون الأردني',pk:'jtv',u:['https://jrtv-live.ercdn.net/jordanhd/jordanhd.m3u8','https://jrtv-live.ercdn.net/jordantv/play.m3u8']},
    {t:'الجزيرة',pk:'aj',u:['https://live-hls-apps-aja-fa.getaj.net/AJA/index.m3u8']},
    {t:'الجزيرة مباشر',pk:'ajm',u:['https://live-hls-apps-ajm-fa.getaj.net/AJM/index.m3u8']},
@@ -1374,14 +1374,14 @@ var IP_ALL=[
    {t:'DW عربية',pk:'dw',u:['https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/index.m3u8']}
  ]},
  {id:'ip_spt',t:'القنوات الرياضية',who:'رياضة — بث مباشر',k:'video',live:1,unit:'قناة',c:['#1f9d55','#0d5c33'],items:[]},
- {id:'ip_kid',t:'قنوات الأطفال',who:'كرتون وبرامج أطفال — بث مباشر',k:'video',live:1,unit:'قناة',c:['#c98a2c','#7a4510'],items:[]},
- {id:'ip_mov',t:'أفلام ومسلسلات',who:'MBC وقنوات الدراما والسينما — بث مباشر',k:'video',live:1,unit:'قناة',c:['#b43fcb','#681a8c'],items:[]}
+ {id:'ip_kid',t:'قنوات الأطفال',who:'كرتون • برامج أطفال • باب الحارة — بث مباشر',k:'video',live:1,unit:'قناة',c:['#c98a2c','#7a4510'],items:[]},
+ {id:'ip_mov',t:'أفلام ومسلسلات',who:'MBC • روتانا • الدراما المصرية • سينما — بث مباشر',k:'video',live:1,unit:'قناة',c:['#b43fcb','#681a8c'],items:[]}
 ];
 /* القنوات المدمجة في الكود تُحفظ في base، ثم يُعاد بناء القوائم من base + قائمة الإنترنت */
 (function(){var i;for(i=0;i<IP_ALL.length;i++){IP_ALL[i].base=IP_ALL[i].items.slice();}})();
 var IPTV=[],ipLd=0,IP_URL='https://iptv-org.github.io/iptv/languages/ara.m3u';
-/* الحد الأعلى لعدد القنوات في كل قسم: إسلامية، عربية، رياضية، أطفال، أفلام ومسلسلات */
-var IP_CAP=[10,20,80,15,40];
+/* عدد القنوات مفتوح: حد أمان 500 لكل قسم (إسلامية، عربية، رياضية، أطفال، أفلام ومسلسلات) */
+var IP_CAP=[500,500,500,500,500];
 function ipRebuild(){
   var i;IPTV.length=0;
   for(i=0;i<IP_ALL.length;i++){IPTV.push(IP_ALL[i]);}
@@ -1413,16 +1413,20 @@ var IPPIN=[
  {pk:'mj',c:3,t:'ماجد',a:/(^| )(majid|majed|ماجد)( |$)/},
  {pk:'tj',c:3,t:'توم وجيري',a:/(tom( and| n)? jerry|توم( و| اند)? ?جيري)/},
  {pk:'co',c:3,t:'المحقق كونان',a:/(conan|كونان)/},
- {pk:'sa',c:3,t:'سالي',a:/((^| )sally|(^| )سالي)/}
+ {pk:'sa',c:3,t:'سالي',a:/((^| )sally|(^| )سالي)/},
+ {pk:'bh',c:3,t:'باب الحارة',a:/(bab ?(al|el) ?ha+ra|باب ?الحاره)/}
 ];
 var IPPT={};(function(){var i;for(i=0;i<IPPIN.length;i++){IPPT[IPPIN[i].pk]=IPPIN[i].t;}})();
-var RX_KID=/(kids|kidz|اطفال|اولاد|كيدز|toyor|طيور|baraem|براعم|jeem|(^| )جيم|karameesh|كراميش|cartoon|كرتون|nickelodeon|نيكلوديون|pogo|بوجو|mbc ?3|ام بي سي ?3|bamboo|بامبو|boomerang|بومرانج|disney|ديزني|toon|توون|animation)/;
+var RX_KID=/(kids|kidz|اطفال|اولاد|كيدز|toyor|طيور|baraem|براعم|jeem|(^| )جيم|karameesh|كراميش|cartoon|كرتون|nickelodeon|نيكلوديون|pogo|بوجو|mbc ?3|ام بي سي ?3|bamboo|بامبو|boomerang|بومرانج|disney|ديزني|toon|توون|animation|mr ?bean|pocoyo|spongebob|peppa|masha|ماشا|baby ?shark)/;
 var RX_ISL=/(قران|quran|koran|sunnah|sunna|الفجر|fajr|تفسير|tafs|دعوه|dawa|اقرا|iqra|الرساله|risala|المجد|almajd|al majd|(^| )صفا( |$)|(^| )safa( |$)|وصال|wesal|islam|اسلام|مكه|makkah|mecca|haram|الحرم|kaaba|الكعبه|hadith|حديث|azhar|الازهر|الرحمه|rahma|هدايه|hidaya|ايمان)/;
 var RX_TAFS=/(تفسير|tafs|دعوه|dawa|محاضر|دروس|فتاوي|فتوي|fatwa)/;
 var RX_SPT=/(sport|رياض|bein|بي ان|الكاس|alkass|al kass|(^| )ssc|ثمانيه|thmanyah|سبورت|koora|كوره|كاس العالم|nba|ufc|wwe|football|soccer|كره)/;
 var RX_MBC=/(^| )(mbc|ام بي سي)/;
 var RX_MOV=/(drama|دراما|series|مسلسل|movie|film|فيلم|افلام|aflam|cinema|سينما|osn|shahid|dubai one|zee alwan|زي الوان|nile ?(drama|cinema|comedy)|نايل ?(دراما|سينما|كوميدي)|(^| )cima|سيما)/;
 var RX_ROT=/(rotana|روتانا).*(cinema|سينما|drama|دراما|classic|كلاسيك|aflam|افلام|movie)/;
+var RX_ROTANA=/(rotana|روتانا)/;
+var RX_EGYD=/((^| )(nile|نايل|nahar|النهار|cbc|dmc|hayah|hayat|الحياه|on|اون|cairo|القاهره|ten|mehwar|المحور|sada|صدي)( |$).*(drama|دراما|cinema|سينما|comedy|كوميدي|aflam|افلام|مسلسلات))/;
+var RX_SYLB=/(syria|syrian|سوريا|سوري|lebanon|lebanese|لبنان|لبناني|(^| )(lbc|lbci|otv|nbn|mtv|sama|dunya|jadeed|manar|ikhbariya|lana|سما|الدنيا|لانا|الجديد|المنار)( |$)|ال ?بي ?سي|تيلي ?لبنان|tele ?liban|الاخباريه السوريه)/;
 var IP_GEN=['news','general','entertainment','public','family','lifestyle','music','culture','documentary','classic','comedy'];
 function ipG(g,x){return (';'+(g||'').toLowerCase().replace(/\s+/g,'')+';').indexOf(';'+x+';')>-1;}
 var IP_BAD=/christ|jesus|church|coptic|bible|sat-?7|miracle|agape|aghapy|logos|noursat|kto|المسيح|مسيحي|قبط|الكرمة|نور ?سات|كنيس|xxx|adult/i;
@@ -1436,7 +1440,10 @@ function ipClass(n,g){
   if(RX_KID.test(s)||ipG(g,'kids')||ipG(g,'animation')){return {c:3,pk:'',r:RX_KID.test(s)?20:50};}
   if(RX_ISL.test(s)||ipG(g,'religious')){return {c:0,pk:'',r:RX_TAFS.test(s)?5:10};}
   if(RX_SPT.test(s)||ipG(g,'sports')){return {c:2,pk:'',r:0};}
+  if(RX_SYLB.test(s)){return {c:1,pk:'',r:3};}
+  if(RX_ROTANA.test(s)){return {c:4,pk:'',r:5};}
   if(RX_MBC.test(s)){return {c:4,pk:'',r:0};}
+  if(RX_EGYD.test(s)){return {c:4,pk:'',r:8};}
   if(RX_MOV.test(s)||RX_ROT.test(s)||ipG(g,'movies')||ipG(g,'series')){return {c:4,pk:'',r:10};}
   for(j=0;j<IP_GEN.length;j++){if(ipG(g,IP_GEN[j])){return {c:1,pk:'',r:ipG(g,'news')?10:20};}}
   return null;
@@ -1500,6 +1507,73 @@ function ipParse(txt){
   }
   return out;
 }
+/* ================= IPTV: Live + أفلام + مسلسلات =================
+   Live = كل القنوات المباشرة أعلاه. الأفلام والمسلسلات (عند الطلب) تُحمَّل من قوائم M3U تُوضع في IPV_SRC. */
+var IPV_SRC={movies:[],series:[]};   /* روابط قوائم M3U: movies للأفلام، series للمسلسلات (group-title = القسم) */
+var IPMOV=[],IPSER=[],ipvLd={movies:0,series:0};
+var IPV_COL=[['#b43fcb','#681a8c'],['#2c66da','#12399a'],['#e0457b','#8a1c4f'],['#14937f','#0b5560'],['#c98a2c','#7a4510'],['#1f9d55','#0d5c33']];
+var IPTOP=[
+ {id:'ip_live',t:'Live',who:'قنوات بث مباشر',k:'video',live:1,unit:'قسم',c:['#e0457b','#8a1c4f'],items:IPTV},
+ {id:'ip_mov2',t:'أفلام',who:'أفلام عند الطلب',k:'video',live:0,unit:'قسم',c:['#b43fcb','#681a8c'],items:IPMOV},
+ {id:'ip_ser',t:'مسلسلات',who:'مسلسلات عند الطلب',k:'video',live:0,unit:'قسم',c:['#2c66da','#12399a'],items:IPSER}
+];
+function dTitle(){
+  return DS===IPTOP?'IPTV':(DS===IPTV?'Live':(DS===IPMOV?'أفلام':(DS===IPSER?'مسلسلات':'دروس إسلامية')));
+}
+function ipTop(j){
+  if(j===0){openDuroos('menu',0,IPTV);ipLoad();return;}
+  var ds=(j===1)?IPMOV:IPSER;
+  ipvLoad(j===1?'movies':'series');
+  if(ds.length){openDuroos('menu',0,ds);}
+}
+function ipvParse(txt){
+  var L=txt.split(/\r?\n/),i,j,m,g,n,u,ln,map={},ord=[],out=[],G;
+  for(i=0;i<L.length;i++){
+    ln=L[i];
+    if(ln.indexOf('#EXTINF')!==0)continue;
+    u='';
+    for(j=i+1;j<L.length&&j<i+4;j++){if(L[j]&&L[j].charAt(0)!=='#'){u=L[j].replace(/\s+$/,'');break;}}
+    if(u.indexOf('https://')!==0&&u.indexOf('http://')!==0)continue;
+    m=/group-title="([^"]*)"/.exec(ln);g=(m&&m[1])?m[1]:'أخرى';
+    n=ln.substr(ln.lastIndexOf(',')+1).replace(/^\s+|\s+$/g,'');
+    if(!n||IP_BAD.test(n)||IP_BAD.test(g))continue;
+    if(!map['g_'+g]){if(ord.length>=40)continue;map['g_'+g]={t:g,items:[]};ord.push('g_'+g);}
+    G=map['g_'+g];
+    if(G.items.length<300){G.items.push({t:n,u:u});}
+  }
+  for(i=0;i<ord.length;i++){out.push(map[ord[i]]);}
+  return out;
+}
+function ipvApply(kind,groups){
+  var arr=(kind==='movies')?IPMOV:IPSER,i,g;
+  arr.length=0;
+  for(i=0;i<groups.length;i++){
+    g=groups[i];
+    arr.push({id:'v'+kind.charAt(0)+i,t:g.t,who:(kind==='movies'?'أفلام':'مسلسلات'),k:'video',live:0,unit:(kind==='movies'?'فيلم':'حلقة'),c:IPV_COL[i%IPV_COL.length],items:g.items});
+  }
+  ipRefresh();
+}
+function ipvTry(kind,n){
+  var src=IPV_SRC[kind],x;
+  if(n>=src.length){ipvLd[kind]=0;return;}
+  try{
+    x=new XMLHttpRequest();
+    x.open('GET',src[n],true);x.timeout=40000;
+    x.onload=function(){
+      var g=null;
+      if(x.status===200&&x.responseText&&x.responseText.indexOf('#EXTM3U')>-1){g=ipvParse(x.responseText);}
+      if(g&&g.length){ipvLd[kind]=0;ipvApply(kind,g);}else{ipvTry(kind,n+1);}
+    };
+    x.onerror=function(){ipvTry(kind,n+1);};
+    x.ontimeout=function(){ipvTry(kind,n+1);};
+    x.send();
+  }catch(e){ipvTry(kind,n+1);}
+}
+function ipvLoad(kind){
+  var arr=(kind==='movies')?IPMOV:IPSER;
+  if(ipvLd[kind]||!IPV_SRC[kind].length||arr.length)return;
+  ipvLd[kind]=1;ipvTry(kind,0);
+}
 var ipWhy='',vWhy='';
 function wvVer(){var m=/Chrome\/(\d+)/.exec(navigator.userAgent||'');return m?('WebView '+m[1]):'WebView ?';}
 var ipStat='',IP_SRC=[
@@ -1508,7 +1582,7 @@ var ipStat='',IP_SRC=[
   'https://raw.githubusercontent.com/iptv-org/iptv/gh-pages/languages/ara.m3u'
 ];
 function ipRefresh(){
-  if(scr==='duroos'&&DS===IPTV&&dv==='menu'){openDuroos('menu',Math.min(dsel,Math.max(0,IPTV.length-1)),IPTV);}
+  if(scr==='duroos'&&dv==='menu'&&(DS===IPTV||DS===IPTOP||DS===IPMOV||DS===IPSER)){openDuroos('menu',Math.min(dsel,Math.max(0,DS.length-1)),DS);}
 }
 function ipApply(list){ipMerge(list);ipStat='ok';ipRefresh();}
 function ipTry(n){
@@ -1522,7 +1596,7 @@ function ipTry(n){
       if(x.status===200&&x.responseText&&x.responseText.indexOf('#EXTM3U')>-1){l=ipParse(x.responseText);if(!l.length){ipWhy='قائمة فارغة';}}
       else{ipWhy='HTTP '+x.status;}
       if(l&&l.length){
-        try{localStorage.setItem('iptv_cache2',JSON.stringify(l));}catch(e){}
+        try{localStorage.setItem('iptv_cache3',JSON.stringify(l));}catch(e){}
         ipLd=0;ipApply(l);
       }else{ipTry(n+1);}
     };
@@ -1538,10 +1612,10 @@ function ipOpen(){
   var l=null;
   if(!ipOpen.c){
     ipOpen.c=1;
-    try{l=JSON.parse(localStorage.getItem('iptv_cache2')||'null');}catch(e){l=null;}
+    try{l=JSON.parse(localStorage.getItem('iptv_cache3')||'null');}catch(e){l=null;}
     if(l&&l.length){ipMerge(l);}else{ipRebuild();}
   }
-  openDuroos('menu',0,IPTV);
+  openDuroos('menu',0,IPTOP);
   ipLoad();
 }
 ipRebuild();
@@ -1554,7 +1628,7 @@ function openDuroos(view,sel,ds){
   if(ds){DS=ds;}else if(view==='menu'){DS=DUR;}
   scr='duroos';dv=view||'menu';
   if(sel!==undefined){dsel=sel;}
-  h='<div id="qbg"></div><div id="qsh"></div><div id="qtop"></div><div id="qT">'+(dv==='menu'?(DS===IPTV?'IPTV':'دروس إسلامية'):DS[dsel].t)+'</div>';
+  h='<div id="qbg"></div><div id="qsh"></div><div id="qtop"></div><div id="qT">'+(dv==='menu'?dTitle():DS[dsel].t)+'</div>';
   if(dv==='menu'){
     h+='<div id="dm">';
     for(i=0;i<DS.length;i++){
@@ -1571,7 +1645,7 @@ function openDuroos(view,sel,ds){
   frame(h);
   $('qbg').innerHTML=qScene();
   if(dv==='menu'){
-    for(i=0;i<DS.length;i++){(function(j){$('dc'+j).onclick=function(){dsel=j;if(DS===IPTV&&!DS[j].items.length){ipLoad();ipRefresh();return;}openDuroos('list',j);};})(i);}
+    for(i=0;i<DS.length;i++){(function(j){$('dc'+j).onclick=function(){dsel=j;if(DS===IPTOP){ipTop(j);return;}if(DS===IPTV&&!DS[j].items.length){ipLoad();ipRefresh();return;}openDuroos('list',j);};})(i);}
   }else{
     if(di>=n){di=0;}
     dRow=Math.max(0,Math.floor(di/4)-3);
@@ -1634,8 +1708,8 @@ function dNext(){
 function routeDuroos(k){
   var n;
   if(dv==='menu'){
-    if(k==='back'){back();}
-    else if(k==='ok'){if(DS===IPTV&&dv==='menu'&&!DS[dsel].items.length){ipLoad();ipRefresh();}else{di=0;openDuroos('list',dsel);}}
+    if(k==='back'){if(DS===IPTV||DS===IPMOV||DS===IPSER){openDuroos('menu',DS===IPTV?0:(DS===IPMOV?1:2),IPTOP);}else{back();}}
+    else if(k==='ok'){if(DS===IPTOP){ipTop(dsel);}else if(DS===IPTV&&dv==='menu'&&!DS[dsel].items.length){ipLoad();ipRefresh();}else{di=0;openDuroos('list',dsel);}}
     else if(k==='right'&&dsel>0){dsel--;dPaint();}
     else if(k==='left'&&dsel<DS.length-1){dsel++;dPaint();}
     else if(k==='up'&&dsel>=3){dsel-=3;dPaint();}
