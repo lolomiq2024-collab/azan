@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
                             byte[] buf = new byte[16384];
                             int n;
                             int total = 0;
-                            while ((n = in.read(buf)) > 0 && total < 8000000) {
+                            while ((n = in.read(buf)) > 0 && total < 30000000) {
                                 bo.write(buf, 0, n);
                                 total += n;
                             }
