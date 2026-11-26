@@ -10,8 +10,8 @@ android {
         applicationId 'com.loai.azanhome'
         minSdk 21
         targetSdk 34
-        versionCode 8
-        versionName '1.7'
+        versionCode 9
+        versionName '1.8'
     }
 
     // توقيع ثابت اختياري: إن حُدّد DEBUG_KEYSTORE_FILE يُوقَّع الـ APK به كي يُثبَّت التحديث فوق النسخة السابقة
@@ -24,6 +24,13 @@ android {
                 keyAlias 'androiddebugkey'
                 keyPassword 'android'
             }
+        }
+    }
+
+    // قائمة القنوات الخاصة (channels/live.m3u) تُرفق داخل التطبيق كنسخة تعمل بدون إنترنت
+    sourceSets {
+        main {
+            assets.srcDirs += ['../channels']
         }
     }
 
