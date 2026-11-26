@@ -15,6 +15,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
@@ -100,6 +101,29 @@ public class MainActivity extends Activity {
             } finally {
                 if (c != null) c.disconnect();
             }
+        }
+
+        /** يُظهر لوحة المفاتيح (لتغيير اسم قناة بالريموت). */
+        @JavascriptInterface
+        public void showKeyboard() {
+            runOnUiThread(() -> {
+                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null && web != null) {
+                    web.requestFocus();
+                    imm.showSoftInput(web, 0);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void hideKeyboard() {
+            runOnUiThread(() -> {
+                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null && web != null) {
+                    imm.hideSoftInputFromWindow(web.getWindowToken(), 0);
+                    immersive();
+                }
+            });
         }
 
         /** يشغّل قناة بث مباشر في المشغّل المستقل. urlsJson: مصفوفة روابط. */
@@ -353,6 +377,12 @@ public class MainActivity extends Activity {
                 web.evaluateJavascript(
                         "if(document.onkeydown){document.onkeydown({keyCode:27,preventDefault:function(){}});}",
                         null);
+            }
+            return true;
+        }
+        if (e.getKeyCode() == KeyEvent.KEYCODE_MENU) {
+            if (e.getAction() == KeyEvent.ACTION_UP) {
+                js("if(window.onMenuKey){onMenuKey();}");
             }
             return true;
         }
