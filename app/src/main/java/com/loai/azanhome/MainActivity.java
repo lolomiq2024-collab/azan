@@ -39,6 +39,9 @@ public class MainActivity extends Activity {
 
     private static final String START_URL = "file:///android_asset/index.html";
     private WebView web;
+    private FrameLayout root;
+    private MoviesPanel movies;     // أفلام ومسلسلات (يوتيوب)، فوق الصفحة
+    private boolean adhanActive = false;
     private static final int REQ_PLAYER = 10;
     private static final int REQ_HOME_ROLE = 11;
     private boolean playerOpen = false;
@@ -103,6 +106,36 @@ public class MainActivity extends Activity {
             }
         }
 
+        /** يفتح «أفلام ومسلسلات» بملء الشاشة. */
+        @JavascriptInterface
+        public void openMovies() {
+            runOnUiThread(() -> showMovies());
+        }
+
+        /** بداية الأذان: يتوقف الفيديو وتظهر شاشة الأذان. */
+        @JavascriptInterface
+        public void adhanStarted() {
+            runOnUiThread(() -> {
+                adhanActive = true;
+                if (movies != null) {
+                    movies.hold();
+                    pageFocus(true);
+                }
+            });
+        }
+
+        /** انتهاء الأذان: يكمل الفيديو من حيث توقف. */
+        @JavascriptInterface
+        public void adhanEnded() {
+            runOnUiThread(() -> {
+                adhanActive = false;
+                if (movies != null) {
+                    pageFocus(false);
+                    movies.release();
+                }
+            });
+        }
+
         /** يُظهر لوحة المفاتيح (لتغيير اسم قناة بالريموت). */
         @JavascriptInterface
         public void showKeyboard() {
@@ -165,7 +198,7 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.setBackgroundColor(0xFF050A18);
 
         web = new WebView(this);
@@ -201,6 +234,10 @@ public class MainActivity extends Activity {
                 }
                 view.destroy();
                 web = null;
+                if (movies != null) {
+                    movies.destroy();
+                    movies = null;
+                }
                 recreate();   // إن انهارت عملية العرض نعيد التشغيل بدل الإغلاق
                 return true;
             }
@@ -232,6 +269,27 @@ public class MainActivity extends Activity {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    private void showMovies() {
+        if (movies != null || adhanActive || web == null) return;
+        movies = new MoviesPanel(this, () -> {
+            if (movies != null) root.removeView(movies.view());
+            movies = null;
+            pageFocus(true);
+        });
+        pageFocus(false);
+        root.addView(movies.view(), new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        movies.focus();
+    }
+
+    /** يمنع الريموت من الانتقال إلى الصفحة المغطاة، ويعيده إليها عند الأذان أو الإغلاق. */
+    private void pageFocus(boolean on) {
+        if (web == null) return;
+        web.setFocusable(on);
+        web.setFocusableInTouchMode(on);
+        if (on) web.requestFocus();
     }
 
     private void openPlayer(String title, String urlsJson) {
@@ -356,6 +414,7 @@ public class MainActivity extends Activity {
         if (web != null) {
             web.onResume();
         }
+        if (movies != null) movies.onResume();
         // العودة من المشغّل. لا نعتمد على onActivityResult: لا يصل دائماً إن ماتت العملية
         if (playerOpen) {
             playerOpen = false;
@@ -369,9 +428,25 @@ public class MainActivity extends Activity {
         js("if(typeof scr!=='undefined'&&scr==='settings'){renderSettings();}");
     }
 
+    @Override
+    protected void onPause() {
+        if (movies != null) movies.onPause();
+        super.onPause();
+    }
+
     /** زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). */
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        // «أفلام ومسلسلات» مفتوحة (ولا أذان الآن): الأزرار لها
+        if (movies != null && !movies.isHeld()) {
+            if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+                if (e.getAction() == KeyEvent.ACTION_UP) movies.back();
+                return true;
+            }
+            if (e.getKeyCode() == KeyEvent.KEYCODE_MENU) return true;
+            if (movies.handleKey(e)) return true;
+            return super.dispatchKeyEvent(e);
+        }
         if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
             if (e.getAction() == KeyEvent.ACTION_UP && web != null) {
                 web.evaluateJavascript(
@@ -396,6 +471,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (movies != null) {
+            movies.destroy();
+            movies = null;
+        }
         if (web != null) {
             web.destroy();
             web = null;

@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ main, master, Tg, Tg-backup ]
+    branches: [ main, master, Tg, Tg-backup, youtube-movies ]
   workflow_dispatch:
 
 jobs:

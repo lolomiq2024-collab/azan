@@ -316,8 +316,7 @@ function rgba(c,a){var n=parseInt(c.slice(1),16);return 'rgba('+(n>>16)+','+((n>
 var TILES=[
  {id:'kahf',t:'سورة الكهف',s:'مشاري العفاسي',c:['#1aa5ab','#0d6c78'],k:'audio',
   src:['https://server8.mp3quran.net/afs/018.mp3','https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/018.mp3','http://server8.mp3quran.net/afs/018.mp3']},
- {id:'baq',t:'سورة البقرة',s:'محمد صديق المنشاوي',c:['#a2909d','#6b596a'],k:'audio',
-  src:['https://server10.mp3quran.net/minsh/002.mp3','https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/002.mp3','http://server10.mp3quran.net/minsh/002.mp3']},
+ {id:'movies',t:'أفلام ومسلسلات',s:'يوتيوب',c:['#a2909d','#6b596a'],k:'movies'},
  {id:'radios',t:'الإذاعات',s:'بث مباشر',c:['#b43fcb','#681a8c'],k:'radios'},
  {id:'iptv',t:'IPTV',s:'بث مباشر • أفلام • مسلسلات',c:['#e0457b','#8a1c4f'],k:'iptv'},
  {id:'quran',t:'القرآن الكريم',s:'بصوت القراء',c:['#14937f','#0b5560'],k:'quran'},
@@ -735,6 +734,7 @@ function openTile(i){
   var t=TILES[i];
   if(t.k==='audio'){openPlayer(t);}
   else if(t.k==='video'){openVideo(t);}
+  else if(t.k==='movies'){openMovies();}
   else if(t.k==='adhkar'){openAdhkar(t.set);}
   else if(t.k==='quran'){openQuran();}
   else if(t.k==='duroos'){openDuroos('menu');}
@@ -742,6 +742,12 @@ function openTile(i){
   else if(t.k==='ruqya'){openDuroos('list',0,RUQ);}
   else if(t.k==='iptv'){ipOpen();}
   else{openTimes();}
+}
+/* أفلام ومسلسلات: يعرضها التطبيق فوق الصفحة بملء الشاشة */
+function openMovies(){
+  if(!window.HomeBridge||!window.HomeBridge.openMovies)return;
+  if(A&&!A.paused){try{A.pause();}catch(e){}}
+  window.HomeBridge.openMovies();
 }
 function openPlayer(t){
   scr='player';plT=t;
@@ -2467,6 +2473,7 @@ function tick(){
 var adhanOn=false,adhanTimer=null,adhanAudio=null;
 function triggerAdhan(name){
   adhanOn=true;
+  try{if(window.HomeBridge&&window.HomeBridge.adhanStarted){window.HomeBridge.adhanStarted();}}catch(e){}
   try{if(window.HomeBridge&&window.HomeBridge.stopVideo){window.HomeBridge.stopVideo();}}catch(e){}
   $('aname').innerHTML=name;$('adhan').className='show';
   if(A&&!A.paused){try{A.pause();}catch(e){}}
@@ -2482,6 +2489,7 @@ function triggerAdhan(name){
 }
 function hideAdhan(){
   adhanOn=false;$('adhan').className='';
+  try{if(window.HomeBridge&&window.HomeBridge.adhanEnded){window.HomeBridge.adhanEnded();}}catch(e){}
   try{if(window.AndroidBridge){AndroidBridge.hideAdhanOverlay();AndroidBridge.stopAdhanAudio();} if(adhanAudio){adhanAudio.pause();}}catch(e){}
 }
 $('adhan').onclick=hideAdhan;
@@ -2585,7 +2593,7 @@ window.onresize=fit;window.onorientationchange=fit;
   if(p.wd===5){ti=tidx('kahf');}
   else if(now>=t.fajr&&now<t.dhuhr){ti=tidx('sab');}
   else if(now>=t.asr&&now<t.isha){ti=tidx('mas');}
-  else{ti=tidx('baq');}
+  else{ti=tidx('movies');}
   tick();
   paintHome();
   setInterval(tick,1000);
