@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
             java.net.HttpURLConnection c = null;
             try {
                 c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                Tls.apply(MainActivity.this, c);
                 c.setConnectTimeout(8000);
                 c.setReadTimeout(15000);
                 c.setInstanceFollowRedirects(true);
