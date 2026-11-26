@@ -344,11 +344,10 @@ final class MoviesPanel {
                 + "function adhanRelease(){if(!hold)return;hold=false;"
                 + "if(again){try{if(ready)player.playVideo();}catch(x){}}}"
                 + "setInterval(function(){var s=st();if(hold&&(s===1||s===3))halt();},400);"
-                // تكبير إطار المشغّل ليملأ الشاشة كاملة (تغطية) بدل بقاء الصورة في الوسط
+                // إطار المشغّل بمقاس الشاشة تماماً: يوتيوب يحافظ على أبعاد الفيديو دون قص أو تمطيط
                 + "function fit(){var f=document.querySelector('iframe');if(!f)return;"
-                + "var W=window.innerWidth,H=window.innerHeight,w=Math.max(W,H*16/9),h=w*9/16;"
-                + "f.style.position='absolute';f.style.width=w+'px';f.style.height=h+'px';"
-                + "f.style.left=((W-w)/2)+'px';f.style.top=((H-h)/2)+'px';}"
+                + "f.style.position='absolute';f.style.left='0';f.style.top='0';"
+                + "f.style.width='100%';f.style.height='100%';}"
                 + "window.addEventListener('resize',fit);"
                 + "function onYouTubeIframeAPIReady(){"
                 + "player=new YT.Player('p',{width:'100%',height:'100%'," + src
