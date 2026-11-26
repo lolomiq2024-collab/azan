@@ -16,6 +16,15 @@ By Loai.miqdadi
 2. افتح تبويب Actions ▸ Build APK ▸ Run workflow.
 3. بعد دقائق حمّل `AzanHome-apk` من أسفل صفحة التشغيل، وفيه `app-debug.apk`.
 
+### توقيع ثابت (كي تُثبَّت التحديثات فوق النسخة السابقة)
+أنشئ المفتاح مرة واحدة واحتفظ به في مكان خاص، ولا ترفعه إلى المستودع:
+
+    keytool -genkeypair -keystore debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Azan Home"
+    base64 -w0 debug.keystore
+
+انسخ الناتج إلى GitHub: Settings ▸ Secrets and variables ▸ Actions ▸ New repository secret
+باسم `DEBUG_KEYSTORE_BASE64`. أول تثبيت بالمفتاح الجديد يحتاج حذف النسخة القديمة.
+
 ## التثبيت على التلفاز
 - انسخ الـ APK بفلاش USB، أو ثبّته بتطبيق Downloader / Send Files to TV، وفعّل «مصادر غير معروفة».
 - للتشغيل التلقائي عند الإقلاع على أندرويد 10 فما فوق: فعّل لهذا التطبيق
@@ -42,9 +51,6 @@ By Loai.miqdadi
 
 ## البث المباشر
 يعمل في مشغّل مستقل (عملية منفصلة)، فإذا انهارت قناة تعود إلى التطبيق، وفي المحاولة التالية يُجرَّب رابط آخر أو فك ترميز برمجي.
-
-## ملف الرقية (ruqya.mp4)
-ضعه في `app/src/main/assets/` بنفس الاسم قبل البناء، فيعمل داخل التطبيق.
 
 ## الخروج من التطبيق
 زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). اضغط زر الرئيسية (Home) للخروج.

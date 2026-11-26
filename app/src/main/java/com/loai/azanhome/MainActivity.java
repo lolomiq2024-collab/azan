@@ -12,7 +12,6 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.KeyEvent;
-import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -30,7 +29,7 @@ import java.util.List;
 
 /**
  * Azan Home — يعرض الصفحة المدمجة (assets/index.html) بملء الشاشة.
- * بث IPTV/HLS يُشغَّل عبر ExoPlayer (Media3) خلف الـ WebView الشفاف.
+ * البث المباشر يُشغَّل في PlayerActivity (ExoPlayer / Media3).
  * زر الرجوع وزر Home لا يُخرجان من التطبيق (وضع كشك)،
  * والخروج للانشر الأصلي للشاشة يتم فقط من إعدادات التطبيق (العودة إلى الشاشة).
  * By Loai.miqdadi
@@ -39,7 +38,6 @@ public class MainActivity extends Activity {
 
     private static final String START_URL = "file:///android_asset/index.html";
     private WebView web;
-    private ExoBridge exo;
     private static final int REQ_PLAYER = 10;
     private static final int REQ_HOME_ROLE = 11;
     private boolean playerOpen = false;
@@ -56,16 +54,14 @@ public class MainActivity extends Activity {
         }
 
         /** يجلب نص رابط (قوائم M3U) مباشرة من الشبكة خارج الـ WebView، ويعيده للصفحة عبر window.__nf(id, text).
-         *  عند فشل شهادة HTTPS (أجهزة قديمة) يعيد المحاولة مرة واحدة بقبول الشهادة لهذا الاتصال فقط. */
+         *  لا تُقبل شهادة HTTPS غير صالحة: القائمة المعدّلة قد تحقن محتوى داخل الصفحة. */
         @JavascriptInterface
         public void fetchText(final String url, final int id) {
             new Thread(new Runnable() {
                 @Override public void run() {
                     String out = null;
                     try {
-                        out = httpGet(url, false);
-                    } catch (javax.net.ssl.SSLException e) {
-                        try { out = httpGet(url, true); } catch (Throwable ignored) { }
+                        out = httpGet(url);
                     } catch (Throwable ignored) {
                     }
                     final String res = out;
@@ -81,24 +77,10 @@ public class MainActivity extends Activity {
             }).start();
         }
 
-        private String httpGet(String url, boolean lenient) throws Exception {
+        private String httpGet(String url) throws Exception {
             java.net.HttpURLConnection c = null;
             try {
                 c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-                if (lenient && c instanceof javax.net.ssl.HttpsURLConnection) {
-                    javax.net.ssl.TrustManager[] tm = new javax.net.ssl.TrustManager[]{new javax.net.ssl.X509TrustManager() {
-                        @Override public void checkClientTrusted(java.security.cert.X509Certificate[] x, String a) { }
-                        @Override public void checkServerTrusted(java.security.cert.X509Certificate[] x, String a) { }
-                        @Override public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
-                    }};
-                    javax.net.ssl.SSLContext ctx = javax.net.ssl.SSLContext.getInstance("TLS");
-                    ctx.init(null, tm, new java.security.SecureRandom());
-                    javax.net.ssl.HttpsURLConnection hc = (javax.net.ssl.HttpsURLConnection) c;
-                    hc.setSSLSocketFactory(ctx.getSocketFactory());
-                    hc.setHostnameVerifier(new javax.net.ssl.HostnameVerifier() {
-                        @Override public boolean verify(String h, javax.net.ssl.SSLSession s) { return true; }
-                    });
-                }
                 c.setConnectTimeout(8000);
                 c.setReadTimeout(15000);
                 c.setInstanceFollowRedirects(true);
@@ -162,24 +144,13 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF050A18);
 
-        // طبقة الفيديو (فوق الصفحة)
-        SurfaceView surface = new SurfaceView(this);
-        surface.setZOrderOnTop(true);      // الفيديو فوق الصفحة (أضمن على أجهزة التلفاز)
-        surface.setFocusable(false);       // يبقى التحكم بالريموت للصفحة
-        surface.setVisibility(View.GONE);
-        root.addView(surface, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
         web = new WebView(this);
-        web.setBackgroundColor(Color.TRANSPARENT);   // شفاف كي يظهر الفيديو من خلفه عند التشغيل
+        web.setBackgroundColor(Color.TRANSPARENT);
         web.setFocusable(true);
         web.setFocusableInTouchMode(true);
         root.addView(web, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
-
-        exo = new ExoBridge(this, root, surface);
-        exo.setWeb(web);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -194,7 +165,6 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setTextZoom(100);
 
-        web.addJavascriptInterface(exo, "ExoBridge");
         web.addJavascriptInterface(new HomeBridge(), "HomeBridge");
 
         web.setWebChromeClient(new WebChromeClient());
@@ -209,15 +179,6 @@ public class MainActivity extends Activity {
                 web = null;
                 recreate();   // إن انهارت عملية العرض نعيد التشغيل بدل الإغلاق
                 return true;
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                // إخفاء عنصر <video> القديم كي يظهر فيديو ExoPlayer من خلف الصفحة
-                view.evaluateJavascript(
-                        "(function(){var s=document.createElement('style');"
-                                + "s.textContent='html.exo #vid{display:none!important}';"
-                                + "document.head.appendChild(s);})();", null);
             }
         });
 
@@ -384,14 +345,6 @@ public class MainActivity extends Activity {
         js("if(typeof scr!=='undefined'&&scr==='settings'){renderSettings();}");
     }
 
-    @Override
-    protected void onStop() {
-        if (exo != null) {
-            exo.pauseIfPlaying();
-        }
-        super.onStop();
-    }
-
     /** زر الرجوع يُمرَّر للصفحة ولا يغلق التطبيق (وضع كشك). */
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
@@ -413,10 +366,6 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (exo != null) {
-            exo.release();
-            exo = null;
-        }
         if (web != null) {
             web.destroy();
             web = null;
