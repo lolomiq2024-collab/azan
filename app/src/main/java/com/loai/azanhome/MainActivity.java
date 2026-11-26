@@ -443,8 +443,8 @@ public class MainActivity extends Activity {
                 if (e.getAction() == KeyEvent.ACTION_UP) movies.back();
                 return true;
             }
-            if (e.getKeyCode() == KeyEvent.KEYCODE_MENU) return true;
             if (movies.handleKey(e)) return true;
+            if (e.getKeyCode() == KeyEvent.KEYCODE_MENU) return true;
             return super.dispatchKeyEvent(e);
         }
         if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {

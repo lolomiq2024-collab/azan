@@ -450,6 +450,21 @@ final class MoviesPanel {
         playerHolder.addView(toggle, new FrameLayout.LayoutParams(
                 dp(44), dp(44), Gravity.LEFT | Gravity.CENTER_VERTICAL));
 
+        if (current >= 0 && "p".equals(lists.get(current)[2])) {
+            TextView episodes = new TextView(activity);
+            episodes.setText("الحلقات");
+            episodes.setTextColor(Color.WHITE);
+            episodes.setTextSize(18);
+            episodes.setPadding(dp(16), dp(8), dp(16), dp(8));
+            episodes.setBackgroundColor(0x99000000);
+            episodes.setOnClickListener(v -> showEpisodes());
+            FrameLayout.LayoutParams epLp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.TOP | Gravity.LEFT);
+            epLp.setMargins(dp(12), dp(12), 0, 0);
+            playerHolder.addView(episodes, epLp);
+        }
+
         LinearLayout side = new LinearLayout(activity);
         side.setOrientation(LinearLayout.VERTICAL);
 
@@ -585,6 +600,43 @@ final class MoviesPanel {
                 .show();
     }
 
+    // ---------- اختيار الحلقة ----------
+
+    /** يسأل المشغّل عن عدد فيديوهات القائمة ورقم الحالي، ثم يعرضها للاختيار. */
+    void showEpisodes() {
+        if (!playing || held || destroyed) return;
+        final String id = currentId;
+        web.evaluateJavascript("(function(){if(!window.player||!ready)return null;"
+                + "var l=player.getPlaylist();return [l?l.length:0,player.getPlaylistIndex()];})()", value -> {
+            // ربما بدأ الأذان أو خرج المستخدم قبل وصول الرد
+            if (!playing || held || destroyed || id == null || !id.equals(currentId)) return;
+            if (dialog != null && dialog.isShowing()) return;
+            int count = 0;
+            int index = 0;
+            try {
+                JSONArray a = new JSONArray(value);
+                count = a.getInt(0);
+                index = a.optInt(1, 0);
+            } catch (Exception ignored) {
+            }
+            if (count < 2) {
+                Toast.makeText(activity, "قائمة الحلقات غير متاحة الآن", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String[] names = new String[count];
+            for (int i = 0; i < count; i++) names[i] = "الحلقة " + (i + 1);
+            dialog = new AlertDialog.Builder(activity)
+                    .setTitle("اختر الحلقة")
+                    .setSingleChoiceItems(names, Math.max(0, Math.min(index, count - 1)), (d, which) -> {
+                        d.dismiss();
+                        web.evaluateJavascript("errs=0;player.playVideoAt(" + which + ");", null);
+                        web.requestFocus();
+                    })
+                    .setNegativeButton("إلغاء", null)
+                    .show();
+        });
+    }
+
     // ---------- الأذان ----------
 
     /** بداية الأذان: إيقاف الفيديو في مكانه وإخفاء اللوحة ليظهر الأذان. */
@@ -635,9 +687,14 @@ final class MoviesPanel {
         }
     }
 
-    /** أثناء التشغيل: موافق = تشغيل/إيقاف، ◄► = تقديم وتأخير، ▲▼ = السابق والتالي. */
+    /** أثناء التشغيل: موافق = تشغيل/إيقاف، ◄► = تقديم وتأخير، ▲ أو القائمة = الحلقات، ▼ = التالي. */
     boolean handleKey(KeyEvent e) {
         if (!playing) return false;
+        if (e.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP || e.getKeyCode() == KeyEvent.KEYCODE_MENU) {
+            // عند رفع الزر، كي لا يصل الحدث إلى النافذة المنبثقة
+            if (e.getAction() == KeyEvent.ACTION_UP) showEpisodes();
+            return true;
+        }
         final String code;
         switch (e.getKeyCode()) {
             case KeyEvent.KEYCODE_DPAD_CENTER:
@@ -661,7 +718,6 @@ final class MoviesPanel {
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
                 code = "player.seekTo(player.getCurrentTime()+10,true)";
                 break;
-            case KeyEvent.KEYCODE_DPAD_UP:
             case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
                 code = "player.previousVideo()";
                 break;
