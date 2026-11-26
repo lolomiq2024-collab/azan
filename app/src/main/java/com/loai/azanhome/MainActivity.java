@@ -44,7 +44,9 @@ public class MainActivity extends Activity {
     private boolean adhanActive = false;
     private static final int REQ_PLAYER = 10;
     private static final int REQ_HOME_ROLE = 11;
+    private static final int REQ_BROWSER = 12;
     private boolean playerOpen = false;
+    private boolean browserOpen = false;
     private long roleAskedAt = 0;
 
     /** جسر بين الصفحة والتطبيق: يُعرَّف في الصفحة باسم window.HomeBridge. */
@@ -166,10 +168,19 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> openPlayer(title, urlsJson));
         }
 
-        /** يغلق المشغّل (مثلاً عند الأذان). */
+        /** يغلق المشغّل والمتصفح (مثلاً عند الأذان). */
         @JavascriptInterface
         public void stopVideo() {
-            runOnUiThread(() -> { if (playerOpen) finishActivity(REQ_PLAYER); });
+            runOnUiThread(() -> {
+                if (playerOpen) finishActivity(REQ_PLAYER);
+                if (browserOpen) finishActivity(REQ_BROWSER);
+            });
+        }
+
+        /** يفتح المتصفح. nextAdhanAt: وقت الأذان القادم بالميلي ثانية، يُغلق المتصفح عنده. */
+        @JavascriptInterface
+        public void openBrowser(final double nextAdhanAt) {
+            runOnUiThread(() -> startBrowser((long) nextAdhanAt));
         }
 
         @JavascriptInterface
@@ -306,6 +317,19 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void startBrowser(long nextAdhanAt) {
+        if (playerOpen || browserOpen) return;
+        Intent i = new Intent(this, Build.VERSION.SDK_INT >= 28
+                ? BrowserActivity.class : BrowserLegacyActivity.class);
+        i.putExtra(BrowserActivity.EXTRA_ADHAN_AT, nextAdhanAt);
+        try {
+            startActivityForResult(i, REQ_BROWSER);
+            browserOpen = true;
+        } catch (Exception e) {
+            toast("تعذّر فتح المتصفح");
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -416,6 +440,7 @@ public class MainActivity extends Activity {
             web.onResume();
         }
         if (movies != null) movies.onResume();
+        browserOpen = false;
         // العودة من المشغّل. لا نعتمد على onActivityResult: لا يصل دائماً إن ماتت العملية
         if (playerOpen) {
             playerOpen = false;

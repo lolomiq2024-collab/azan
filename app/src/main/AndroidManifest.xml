@@ -61,6 +61,23 @@
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density" />
 
+        <!-- المتصفح في عملية مستقلة ببيانات منفصلة (أندرويد 9 فما فوق) -->
+        <activity
+            android:name=".BrowserActivity"
+            android:exported="false"
+            android:process=":browser"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateHidden|adjustPan"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density" />
+
+        <!-- المتصفح على أندرويد 8.1 فما دون: في عملية التطبيق -->
+        <activity
+            android:name=".BrowserLegacyActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateHidden|adjustPan"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density" />
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">

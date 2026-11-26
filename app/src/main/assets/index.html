@@ -314,8 +314,7 @@ var CITIES=[
 
 function rgba(c,a){var n=parseInt(c.slice(1),16);return 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')';}
 var TILES=[
- {id:'kahf',t:'سورة الكهف',s:'مشاري العفاسي',c:['#1aa5ab','#0d6c78'],k:'audio',
-  src:['https://server8.mp3quran.net/afs/018.mp3','https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/018.mp3','http://server8.mp3quran.net/afs/018.mp3']},
+ {id:'web',t:'المتصفح',s:'مواقع الإنترنت والفيديو',c:['#1aa5ab','#0d6c78'],k:'browser'},
  {id:'movies',t:'أفلام ومسلسلات',s:'يوتيوب',c:['#a2909d','#6b596a'],k:'movies'},
  {id:'radios',t:'الإذاعات',s:'بث مباشر',c:['#b43fcb','#681a8c'],k:'radios'},
  {id:'iptv',t:'IPTV',s:'بث مباشر • أفلام • مسلسلات',c:['#e0457b','#8a1c4f'],k:'iptv'},
@@ -741,13 +740,28 @@ function openTile(i){
   else if(t.k==='radios'){openDuroos('list',0,RAD);}
   else if(t.k==='ruqya'){openDuroos('list',0,RUQ);}
   else if(t.k==='iptv'){ipOpen();}
+  else if(t.k==='browser'){openBrowser();}
   else{openTimes();}
+}
+/* يسكت صوت الصفحة قبل فتح شاشة أخرى؛ ما يزال يُحمَّل يُلغى كي لا يبدأ لاحقاً فوقها */
+function quietAudio(){
+  if(A&&A_state==='playing'){try{A.pause();}catch(x){}}
+  else if(A&&A_state!=='paused'){stopAudio();updAudio();}
 }
 /* أفلام ومسلسلات: يعرضها التطبيق فوق الصفحة بملء الشاشة */
 function openMovies(){
   if(!window.HomeBridge||!window.HomeBridge.openMovies)return;
-  if(A&&!A.paused){try{A.pause();}catch(e){}}
+  quietAudio();
   window.HomeBridge.openMovies();
+}
+/* المتصفح شاشة أصلية في التطبيق؛ يُمرَّر إليه وقت الأذان القادم ليُغلق عنده */
+function openBrowser(){
+  if(!(window.HomeBridge&&window.HomeBridge.openBrowser)){
+    var e=$('ts'+tidx('web'));if(e){e.innerHTML='يعمل داخل التطبيق فقط';}
+    return;
+  }
+  quietAudio();
+  window.HomeBridge.openBrowser(nextPrayer(Date.now()).t);
 }
 function openPlayer(t){
   scr='player';plT=t;
@@ -2590,8 +2604,7 @@ window.onresize=fit;window.onorientationchange=fit;
   initScenes();
   renderTiles();
   var now=Date.now(),p=lp(now),t=calcTimes(city(),p.y,p.m,p.d,CFG.adj);
-  if(p.wd===5){ti=tidx('kahf');}
-  else if(now>=t.fajr&&now<t.dhuhr){ti=tidx('sab');}
+  if(now>=t.fajr&&now<t.dhuhr){ti=tidx('sab');}
   else if(now>=t.asr&&now<t.isha){ti=tidx('mas');}
   else{ti=tidx('movies');}
   tick();
