@@ -21,7 +21,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.VideoSize;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -268,12 +267,6 @@ public class PlayerActivity extends Activity {
                 }
             }
 
-            @Override public void onVideoSizeChanged(VideoSize s) {
-                if (p == player && s.width > 0 && s.height > 0) {
-                    fit(s.width * s.pixelWidthHeightRatio / s.height);
-                }
-            }
-
             @Override public void onPlayerError(PlaybackException e) {
                 if (p != player) return;
                 Log.w(TAG, "playback error " + e.getErrorCodeName(), e);
@@ -392,17 +385,6 @@ public class PlayerActivity extends Activity {
         status.setText(text);
         status.setVisibility(View.VISIBLE);
         if (autoHide) ui.postDelayed(hideStatus, 3000);
-    }
-
-    private void fit(float ratio) {
-        int w = root.getWidth(), h = root.getHeight();
-        if (w == 0 || h == 0 || ratio <= 0) return;
-        int vw = w, vh = Math.round(w / ratio);
-        if (vh > h) {
-            vh = h;
-            vw = Math.round(h * ratio);
-        }
-        surface.setLayoutParams(new FrameLayout.LayoutParams(vw, vh, Gravity.CENTER));
     }
 
     private void toggle() {

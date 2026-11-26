@@ -377,7 +377,7 @@ public class MainActivity extends Activity {
             // بقاء العلامة يعني أن المشغّل انهار (ويقرأها هو في المرة القادمة)
             if (new File(getFilesDir(), PlayerActivity.CRASH_MARKER).exists()) {
                 toast("توقف المشغّل المدمج، جارٍ تجربة WebView");
-                js("if(window.nativeVideoFallback){nativeVideoFallback();}");
+                js("if(window.nativeVideoCrashed){nativeVideoCrashed();}");
             }
         }
         // تحديث حالة صفوف الإعدادات بعد العودة من إعدادات النظام

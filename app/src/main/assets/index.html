@@ -833,11 +833,17 @@ function vSavePos(){
 /* مشغّلان للبث المباشر: المدمج (ExoPlayer) و WebView. web: true يفرض WebView و false يفرض المدمج، وبدونها حسب الإعدادات */
 var nvTile=null;
 function openNative(t,web){
-  if(web===true||(web!==false&&S.player==='web'))return false;
+  if(web===true||(web!==false&&(S.player==='web'||webChs().indexOf(t.t)>-1)))return false;
   if(!t.live||!window.HomeBridge||!window.HomeBridge.playLive||!/^https?:/i.test(t.file))return false;
   try{window.HomeBridge.playLive(t.t,JSON.stringify([t.file].concat(t.alt||[])));}catch(e){return false;}
   nvTile=t;vRet=0;
   return true;
+}
+/* قنوات أسقطت المشغّل المدمج: تُفتح بعدها مباشرة على WebView */
+function webChs(){var a=null;try{a=JSON.parse(localStorage.getItem('web_ch')||'[]');}catch(e){}return a&&a.length?a:[];}
+function nativeVideoCrashed(){
+  if(nvTile){var a=webChs();if(a.indexOf(nvTile.t)<0){a.push(nvTile.t);}try{localStorage.setItem('web_ch',JSON.stringify(a.slice(-60)));}catch(e){}}
+  nativeVideoFallback();
 }
 function nativeVideoFallback(){
   var t=nvTile;nvTile=null;
@@ -1665,7 +1671,7 @@ function ipMerge(list){
   }
   ipRebuild();
 }
-var IP_AR=/[\u0600-\u06FF]|(^|[\s\-_])(al|el)[\s\-_]|mbc|rotana|jazeera|arabiya|arabia|roya|alkass|bein|ssc |dubai|sharjah|saudi|kuwait|qatar|oman|bahrain|jordan|egypt|nile|cairo|lebanon|syria|iraq|libya|tunis|algeri|morocc|palestin|sudan|yemen|ajman|emirates|abu ?dhabi|dream|cbc|ontv|nessma|ennahar|echorouk|medi ?1|2m |lbc|almanar|mamlaka|amman|quran|makkah|madina|iqra|ksa|sky ?news ?arab|bbc ?arab|dw ?arab|france ?24 ?arab|trt ?arab|ten tv|alghad|sama tv|future tv|orient/i;
+var IP_AR=/[\u0600-\u06FF]|arabic|(^|[\s\-_])(al|el)[\s\-_]|mbc|rotana|jazeera|arabiya|arabia|roya|alkass|bein|ssc |dubai|sharjah|saudi|kuwait|qatar|oman|bahrain|jordan|egypt|nile|cairo|lebanon|syria|iraq|libya|tunis|algeri|morocc|palestin|sudan|yemen|ajman|emirates|abu ?dhabi|dream|cbc|ontv|nessma|ennahar|echorouk|medi ?1|2m |lbc|almanar|mamlaka|amman|quran|makkah|madina|iqra|ksa|sky ?news ?arab|bbc ?arab|dw ?arab|france ?24 ?arab|trt ?arab|ten tv|alghad|sama tv|future tv|orient/i;
 var IP_NOTAR=/(hindi|tamil|malayalam|telugu|urdu|punjabi|bangla|kannada|marathi|gujarati|asianet|zee |star ?plus|sony |colors|filipino|tagalog|persian|farsi|turk|kurd|rudaw)/i;
 /* ترويسات القناة من القائمة (Referer / User-Agent) تُلحق بالرابط ليقرأها المشغّل */
 function ipHdr(L,i,j){
@@ -1815,7 +1821,7 @@ function ipPush(){
   var all=[],i;
   for(i=0;i<IP_G.length;i++){if(ipRes[i]){all=all.concat(ipRes[i]);}}
   ipMerge(all);ipStat='ok';
-  try{localStorage.setItem('iptv_cache6',JSON.stringify(all.slice(0,2500)));}catch(e){}
+  try{localStorage.setItem('iptv_cache7',JSON.stringify(all.slice(0,2500)));}catch(e){}
   ipRefresh();
 }
 function ipFin(){
@@ -1843,7 +1849,7 @@ function ipOpen(){
   var l=null;
   if(!ipOpen.c){
     ipOpen.c=1;
-    try{l=JSON.parse(localStorage.getItem('iptv_cache6')||'null');}catch(e){l=null;}
+    try{l=JSON.parse(localStorage.getItem('iptv_cache7')||'null');}catch(e){l=null;}
     if(l&&l.length){ipMerge(l);}else{ipRebuild();}
   }
   openDuroos('menu',0,IPTOP);
