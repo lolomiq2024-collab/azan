@@ -108,6 +108,8 @@ final class MoviesPanel {
     private FrameLayout playerHolder;
     private MoviePlayer player;     // المشغّل الداخلي، يُنشأ عند أول تشغيل
     private BaseAdapter adapter;
+    private TextView statusView;    // مراحل تشغيل Firefox
+    private String status;
 
     private WebChromeClient chrome;
     private View customView;
@@ -463,6 +465,12 @@ final class MoviesPanel {
                 @Override
                 public void playing() {
                     geckoSettled();
+                    showStatus(null);
+                }
+
+                @Override
+                public void status(String text) {
+                    showStatus(text);
                 }
 
                 @Override
@@ -478,6 +486,13 @@ final class MoviesPanel {
             Toast.makeText(activity, "تعذّر تشغيل مشغّل Firefox على هذه الشاشة", Toast.LENGTH_LONG).show();
             return false;
         }
+    }
+
+    private void showStatus(String text) {
+        status = text;
+        if (statusView == null) return;
+        statusView.setText(text);
+        statusView.setVisibility(text == null ? View.GONE : View.VISIBLE);
     }
 
     private String modeLabel() {
@@ -554,6 +569,7 @@ final class MoviesPanel {
             return;
         }
         playing = true;
+        status = null;
         buildLayout();
         player.view().requestFocus();
         player.load(item[1], item[2]);
@@ -650,6 +666,19 @@ final class MoviesPanel {
             epLp.setMargins(dp(12), dp(12), 0, 0);
             playerHolder.addView(episodes, epLp);
         }
+
+        statusView = new TextView(activity);
+        statusView.setTextColor(Color.WHITE);
+        statusView.setTextSize(16);
+        statusView.setPadding(dp(16), dp(10), dp(16), dp(10));
+        statusView.setBackgroundColor(0xCC202020);
+        statusView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        FrameLayout.LayoutParams statusLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.RIGHT);
+        statusLp.setMargins(0, 0, dp(12), dp(12));
+        playerHolder.addView(statusView, statusLp);
+        showStatus(status);
 
         LinearLayout side = new LinearLayout(activity);
         side.setOrientation(LinearLayout.VERTICAL);

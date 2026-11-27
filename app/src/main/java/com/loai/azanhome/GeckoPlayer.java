@@ -5,6 +5,7 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 
 import org.mozilla.geckoview.AllowOrDeny;
@@ -13,11 +14,16 @@ import org.mozilla.geckoview.GeckoRuntime;
 import org.mozilla.geckoview.GeckoRuntimeSettings;
 import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoView;
+import org.mozilla.geckoview.WebRequestError;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * مشغّل تجريبي للقوائم بمحرك Firefox (GeckoView 143، آخر إصدار يدعم أندرويد 5)
@@ -31,11 +37,26 @@ final class GeckoPlayer implements MoviePlayer {
 
         /** انهارت عملية العرض أو أوقفها النظام (غالباً لقلة الذاكرة). */
         void failed();
+
+        /** مراحل التشغيل، تُعرض فوق المشغّل إلى أن يبدأ الفيديو. */
+        void status(String text);
     }
 
     /** مهلة تأكيد الصفحة أنها توقفت للأذان، وإلا تُغلق الصفحة حتى لا يُسمع صوتها. */
     private static final long HOLD_ACK_MS = 3000;
     private static final long EPISODES_WAIT_MS = 5000;
+    private static final String TAG = "AzanGecko";
+
+    // المراحل بالترتيب: {المعرّف, الاسم}
+    private static final String[][] STAGES = {
+            {"page", "المحرك طلب صفحة المشغّل"},
+            {"drawn", "الرسم على الشاشة"},
+            {"script", "سكربت الصفحة يعمل"},
+            {"apijs", "وصل ملف مشغّل يوتيوب"},
+            {"api", "بدأ تجهيز المشغّل"},
+            {"ready", "مشغّل يوتيوب جاهز"},
+            {"playing", "بدأ الفيديو"},
+    };
 
     private static final String CONFIG =
             "prefs:\n"
@@ -62,6 +83,9 @@ final class GeckoPlayer implements MoviePlayer {
     private boolean reload = false;     // أُغلقت الصفحة أثناء الأذان وتُحمَّل من جديد بعده
     private boolean destroyed = false;
     private Episodes waiting;
+    private final Set<String> reached = new HashSet<>();
+    private String problem;
+    private final Map<String, String> network = new LinkedHashMap<>();
 
     private final Runnable checkHold = this::checkHold;
     private final Runnable noEpisodes = () -> answerEpisodes(0, 0);
@@ -79,8 +103,20 @@ final class GeckoPlayer implements MoviePlayer {
             public void onState(int gen, String state) {
                 ui.post(() -> {
                     if (destroyed || gen != server.generation()) return;
-                    if ("held".equals(state)) holdConfirmed = true;
-                    else if ("playing".equals(state)) GeckoPlayer.this.events.playing();
+                    if ("held".equals(state)) {
+                        holdConfirmed = true;
+                    } else if ("playing".equals(state)) {
+                        Log.i(TAG, "stage playing");
+                        GeckoPlayer.this.events.playing();
+                    } else if (state.startsWith("error")) {
+                        trouble("خطأ يوتيوب رقم " + state.substring(5));
+                    } else if ("noapi".equals(state)) {
+                        trouble("تعذّر الاتصال بيوتيوب");
+                    } else if (state.startsWith("net-")) {
+                        probed(state);
+                    } else {
+                        stage(state);
+                    }
                 });
             }
 
@@ -115,10 +151,54 @@ final class GeckoPlayer implements MoviePlayer {
         return view;
     }
 
+    private void stage(String name) {
+        Log.i(TAG, "stage " + name);
+        reached.add(name);
+        showStatus();
+    }
+
+    private void trouble(String text) {
+        Log.w(TAG, text);
+        problem = text;
+        showStatus();
+    }
+
+    /** state: net-الموقع-النتيجة */
+    private void probed(String state) {
+        Log.i(TAG, state);
+        String[] p = state.split("-");
+        if (p.length != 3) return;
+        network.put(p[1], "ok".equals(p[2]) ? "✓" : "slow".equals(p[2]) ? "لا رد" : "✗");
+        showStatus();
+    }
+
+    private void showStatus() {
+        if (destroyed || reached.contains("playing")) return;
+        StringBuilder b = new StringBuilder("مشغّل Firefox (إن لم يعمل صوّر هذه القائمة)");
+        for (String[] s : STAGES) {
+            if (!"playing".equals(s[0])) {
+                b.append('\n').append(reached.contains(s[0]) ? "✓ " : "… ").append(s[1]);
+            }
+        }
+        if (!network.isEmpty()) {
+            b.append("\nالإنترنت:");
+            for (Map.Entry<String, String> n : network.entrySet()) {
+                b.append("  ").append(n.getKey()).append(' ').append(n.getValue());
+            }
+        }
+        if (problem != null) b.append("\n✗ ").append(problem);
+        events.status(b.toString());
+    }
+
     private void openSession() {
         if (session != null) return;
         GeckoSession s = new GeckoSession();
         s.setContentDelegate(new GeckoSession.ContentDelegate() {
+            @Override
+            public void onFirstComposite(GeckoSession from) {
+                if (from == session) stage("drawn");
+            }
+
             @Override
             public void onCrash(GeckoSession dead) {
                 lost(dead);
@@ -134,7 +214,16 @@ final class GeckoPlayer implements MoviePlayer {
             @Override
             public GeckoResult<AllowOrDeny> onLoadRequest(GeckoSession from, LoadRequest request) {
                 boolean ours = request.uri.startsWith(server.base()) || "about:blank".equals(request.uri);
+                if (!ours) Log.w(TAG, "blocked " + request.uri);
                 return GeckoResult.fromValue(ours ? AllowOrDeny.ALLOW : AllowOrDeny.DENY);
+            }
+
+            @Override
+            public GeckoResult<String> onLoadError(GeckoSession from, String uri, WebRequestError error) {
+                if (from == session) {
+                    trouble("خطأ المحرك في فتح الصفحة: " + error.category + "/" + error.code);
+                }
+                return null;
             }
         });
         // التشغيل التلقائي فقط، وما عداه (الكاميرا، الموقع...) مرفوض
@@ -145,6 +234,17 @@ final class GeckoPlayer implements MoviePlayer {
                         || p.permission == PERMISSION_AUTOPLAY_INAUDIBLE;
                 return GeckoResult.fromValue(autoplay
                         ? ContentPermission.VALUE_ALLOW : ContentPermission.VALUE_DENY);
+            }
+        });
+        s.setProgressDelegate(new GeckoSession.ProgressDelegate() {
+            @Override
+            public void onPageStart(GeckoSession from, String url) {
+                Log.i(TAG, "page start " + url.replaceFirst("/[0-9a-f]{32}/", "/*/"));
+            }
+
+            @Override
+            public void onPageStop(GeckoSession from, boolean success) {
+                Log.i(TAG, "page stop " + success);
             }
         });
         s.open(engine);
@@ -162,6 +262,7 @@ final class GeckoPlayer implements MoviePlayer {
 
     private void lost(GeckoSession dead) {
         if (destroyed || dead != session) return;
+        Log.w(TAG, "content process lost");
         closeSession();
         if (held) reload = true;    // نعيد التحميل بعد الأذان
         else events.failed();
@@ -173,6 +274,10 @@ final class GeckoPlayer implements MoviePlayer {
         id = newId;
         type = newType;
         reload = false;
+        reached.clear();
+        problem = null;
+        network.clear();
+        showStatus();
         openSession();
         session.setActive(true);
         session.loadUri(server.load(gen -> PlayerPage.html(newId, newType, server.origin(),

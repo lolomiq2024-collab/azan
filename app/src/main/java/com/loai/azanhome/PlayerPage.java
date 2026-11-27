@@ -24,9 +24,9 @@ final class PlayerPage {
                 + "border-radius:12px;background:rgba(0,0,0,.85);color:#fff;font:20px/1.8 sans-serif;"
                 + "text-align:center;direction:rtl;pointer-events:none}"
                 + "</style></head><body><div id=\"p\"></div><div id=\"m\"></div>"
-                + "<script src=\"https://www.youtube.com/iframe_api\"></script>"
                 + "<script>"
                 + "var player,ready=false,errs=0,hold=false,again=false,played=false;"
+                + "function stage(s){if(window.onStage)onStage(s);}"
                 // إن لم يعمل الفيديو نُظهر السبب وإصدار المحرك (القديم لا يشغّل يوتيوب)
                 + "var ff=navigator.userAgent.match(/Firefox\\/(\\d+)/);"
                 + "var engine=ff?'محرك Firefox':'إصدار WebView في هذه الشاشة';"
@@ -61,20 +61,24 @@ final class PlayerPage {
                 + "f.style.position='absolute';f.style.left='0';f.style.top='0';"
                 + "f.style.width='100%';f.style.height='100%';}"
                 + "window.addEventListener('resize',fit);"
-                + "function onYouTubeIframeAPIReady(){"
+                + "function onYouTubeIframeAPIReady(){stage('api');"
                 + "player=new YT.Player('p',{width:'100%',height:'100%'," + src
                 + "playerVars:{" + vars + "autoplay:1,playsinline:1,rel:0,enablejsapi:1,"
                 + "origin:'" + origin + "',widget_referrer:'" + origin + "'},"
                 + "events:{"
-                + "onReady:function(e){ready=true;fit();if(!hold)e.target.playVideo();setTimeout(fit,500);},"
+                + "onReady:function(e){ready=true;stage('ready');fit();if(!hold)e.target.playVideo();setTimeout(fit,500);},"
                 + "onStateChange:function(e){fit();if(hold){if(e.data===1||e.data===3)halt();return;}"
                 + "if(e.data===1){errs=0;played=true;msg('');if(window.onPlaying)onPlaying();}"
                 + (video ? "if(e.data===0){try{player.seekTo(0);player.playVideo();}catch(x){}}" : "")
                 + "},"
-                + "onError:function(e){if(hold)return;msg('خطأ يوتيوب رقم '+e.data);errs++;if(errs<60){try{player.nextVideo();}catch(x){}}}"
+                + "onError:function(e){stage('error'+e.data);if(hold)return;msg('خطأ يوتيوب رقم '+e.data);errs++;if(errs<60){try{player.nextVideo();}catch(x){}}}"
                 + "}});}"
                 + "</script>"
                 + extra
+                + "<script>var a=document.createElement('script');a.src='https://www.youtube.com/iframe_api';"
+                + "a.onload=function(){stage('apijs');};"
+                + "a.onerror=function(){stage('noapi');msg('تعذّر الاتصال بيوتيوب');};"
+                + "document.body.appendChild(a);</script>"
                 + "</body></html>";
     }
 
@@ -86,7 +90,8 @@ final class PlayerPage {
     static String remoteScript(int gen) {
         return "<script>(function(){var G=" + gen + ";"
                 + "function send(p){var x=new XMLHttpRequest();x.open('GET',p);x.send();}"
-                + "window.onPlaying=function(){send('s?g='+G+'&k=playing');};"
+                + "window.onStage=function(k){send('s?g='+G+'&k='+k);};"
+                + "window.onPlaying=function(){onStage('playing');};"
                 + "function run(c){if(c==='episodes'){var i=null;try{i=info();}catch(x){}i=i||[0,0];"
                 + "send('e?g='+G+'&c='+(+i[0]||0)+'&i='+(+i[1]||0));return;}"
                 + "cmd(c);if(c==='hold')send('s?g='+G+'&k=held');}"
@@ -94,6 +99,15 @@ final class PlayerPage {
                 + "x.onload=function(){if(x.status!==200||x.responseText==='gone')return;"
                 + "x.responseText.split('\\n').forEach(function(c){if(c){try{run(c);}catch(e){}}});poll();};"
                 + "x.onerror=x.ontimeout=function(){setTimeout(poll,1000);};x.send();}"
+                // إن لم يجهز المشغّل نفحص: هل يصل المحرك إلى الإنترنت أصلاً؟
+                + "function probe(n,u){var over=false;function end(r){if(over)return;over=true;onStage('net-'+n+'-'+r);}"
+                + "setTimeout(function(){end('slow');},10000);"
+                + "try{fetch(u,{mode:'no-cors',cache:'no-store'}).then(function(){end('ok');},function(){end('fail');});}"
+                + "catch(x){end('fail');}}"
+                + "setTimeout(function(){if(ready)return;"
+                + "probe('youtube','https://www.youtube.com/generate_204');"
+                + "probe('google','https://www.google.com/generate_204');"
+                + "probe('github','https://github.com/robots.txt');},12000);"
                 + "poll();})();</script>";
     }
 }

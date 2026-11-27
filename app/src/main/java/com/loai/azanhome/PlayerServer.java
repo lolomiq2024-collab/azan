@@ -39,6 +39,7 @@ final class PlayerServer {
     private final List<String> commands = new ArrayList<>();
     private String page;
     private int gen = 0;
+    private int scriptGen = 0;      // آخر صفحة بدأ سكربتها يسأل عن الأوامر
     private boolean closed = false;
 
     PlayerServer(Listener listener) throws IOException {
@@ -151,10 +152,14 @@ final class PlayerServer {
                         html = g == gen ? page : null;
                     }
                     if (html == null) reply(c, "404 Not Found", "text/plain", "");
-                    else reply(c, "200 OK", "text/html", html);
+                    else {
+                        reply(c, "200 OK", "text/html", html);
+                        listener.onState(g, "page");
+                    }
                     break;
                 }
                 case "c":
+                    if (firstPoll(g)) listener.onState(g, "script");
                     reply(c, "200 OK", "text/plain", waitForCommands(g));
                     break;
                 case "s":
@@ -172,6 +177,12 @@ final class PlayerServer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private synchronized boolean firstPoll(int g) {
+        if (g != gen || g == scriptGen) return false;
+        scriptGen = g;
+        return true;
     }
 
     /** ينتظر أمراً للصفحة الحالية: سطر لكل أمر، أو "gone" إن لم تعد هي الحالية. */
