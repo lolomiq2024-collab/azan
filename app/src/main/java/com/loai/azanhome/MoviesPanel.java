@@ -466,6 +466,13 @@ final class MoviesPanel {
                 }
 
                 @Override
+                public void problem(String detail) {
+                    if (!destroyed && playing) {
+                        Toast.makeText(activity, detail, Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                @Override
                 public void failed() {
                     if (destroyed) return;
                     Toast.makeText(activity, "توقف مشغّل Firefox (قد تكون ذاكرة الشاشة غير كافية)",

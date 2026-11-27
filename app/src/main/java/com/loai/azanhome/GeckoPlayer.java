@@ -2,6 +2,7 @@ package com.loai.azanhome;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -13,6 +14,7 @@ import org.mozilla.geckoview.GeckoRuntime;
 import org.mozilla.geckoview.GeckoRuntimeSettings;
 import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoView;
+import org.mozilla.geckoview.WebRequestError;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -31,7 +33,13 @@ final class GeckoPlayer implements MoviePlayer {
 
         /** انهارت عملية العرض أو أوقفها النظام (غالباً لقلة الذاكرة). */
         void failed();
+
+        /** مشكلة في فتح صفحة المشغّل، لعرضها على المستخدم. */
+        void problem(String detail);
     }
+
+    /** مهلة فتح صفحة المشغّل قبل إبلاغ المستخدم. */
+    private static final long PAGE_WAIT_MS = 25000;
 
     /** مهلة تأكيد الصفحة أنها توقفت للأذان، وإلا تُغلق الصفحة حتى لا يُسمع صوتها. */
     private static final long HOLD_ACK_MS = 3000;
@@ -62,9 +70,12 @@ final class GeckoPlayer implements MoviePlayer {
     private boolean reload = false;     // أُغلقت الصفحة أثناء الأذان وتُحمَّل من جديد بعده
     private boolean destroyed = false;
     private Episodes waiting;
+    private boolean alive = false;      // وصلت أول رسالة من الصفحة
 
     private final Runnable checkHold = this::checkHold;
     private final Runnable noEpisodes = () -> answerEpisodes(0, 0);
+
+    private final Runnable checkAlive = this::checkAlive;
 
     /** نسخة التطبيق تحوي المحرك لمعالجات ARM 32-bit فقط. */
     static boolean supported() {
@@ -79,7 +90,10 @@ final class GeckoPlayer implements MoviePlayer {
             public void onState(int gen, String state) {
                 ui.post(() -> {
                     if (destroyed || gen != server.generation()) return;
-                    if ("held".equals(state)) holdConfirmed = true;
+                    if ("alive".equals(state)) {
+                        alive = true;
+                        ui.removeCallbacks(checkAlive);
+                    } else if ("held".equals(state)) holdConfirmed = true;
                     else if ("playing".equals(state)) GeckoPlayer.this.events.playing();
                 });
             }
@@ -92,6 +106,7 @@ final class GeckoPlayer implements MoviePlayer {
             }
         });
         view = new GeckoView(activity);
+        view.coverUntilFirstPaint(Color.BLACK);     // الافتراضي أبيض
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
     }
@@ -136,6 +151,14 @@ final class GeckoPlayer implements MoviePlayer {
                 boolean ours = request.uri.startsWith(server.base()) || "about:blank".equals(request.uri);
                 return GeckoResult.fromValue(ours ? AllowOrDeny.ALLOW : AllowOrDeny.DENY);
             }
+
+            @Override
+            public GeckoResult<String> onLoadError(GeckoSession from, String uri, WebRequestError error) {
+                if (!destroyed && from == session) {
+                    events.problem("خطأ فتح الصفحة " + error.category + "/" + error.code);
+                }
+                return null;
+            }
         });
         // التشغيل التلقائي فقط، وما عداه (الكاميرا، الموقع...) مرفوض
         s.setPermissionDelegate(new GeckoSession.PermissionDelegate() {
@@ -175,8 +198,16 @@ final class GeckoPlayer implements MoviePlayer {
         reload = false;
         openSession();
         session.setActive(true);
+        alive = false;
         session.loadUri(server.load(gen -> PlayerPage.html(newId, newType, server.origin(),
                 PlayerPage.remoteScript(gen))));
+        ui.removeCallbacks(checkAlive);
+        ui.postDelayed(checkAlive, PAGE_WAIT_MS);
+    }
+
+    private void checkAlive() {
+        if (destroyed || alive || held || session == null) return;
+        events.problem("محرك Firefox لم يفتح صفحة المشغّل");
     }
 
     @Override
@@ -257,6 +288,7 @@ final class GeckoPlayer implements MoviePlayer {
     public void stop() {
         if (destroyed) return;
         ui.removeCallbacks(checkHold);
+        ui.removeCallbacks(checkAlive);
         forgetEpisodes();
         id = null;
         reload = false;

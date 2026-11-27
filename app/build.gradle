@@ -10,8 +10,8 @@ android {
         applicationId 'com.loai.azanhome'
         minSdk 21
         targetSdk 34
-        versionCode 19
-        versionName '2.8-gecko'
+        versionCode 20
+        versionName '2.8.1-gecko'
     }
 
     // توقيع ثابت اختياري: إن حُدّد DEBUG_KEYSTORE_FILE يُوقَّع الـ APK به كي يُثبَّت التحديث فوق النسخة السابقة
