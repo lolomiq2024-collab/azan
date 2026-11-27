@@ -28,10 +28,12 @@ jobs:
           fi
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
-      - name: Show GeckoView version and APK size
+      - name: Show APK size, supported processors and permissions
         run: |
-          gradle -q app:dependencyInsight --configuration debugRuntimeClasspath --dependency geckoview --no-daemon
-          ls -l app/build/outputs/apk/debug/app-debug.apk
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          ls -l $APK
+          AAPT=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)aapt
+          $AAPT dump badging $APK | grep -E "^(package|sdkVersion|targetSdkVersion|native-code|uses-permission|uses-feature)" 
       - uses: actions/upload-artifact@v4
         with:
           name: AzanHome-apk
