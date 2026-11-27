@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.os.Build;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -35,6 +36,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,6 +64,14 @@ final class MoviesPanel {
     private static final String KEY_REMOTE = "remote_json";
     private static final String KEY_LAST_ID = "last_id";
 
+    private static final String KEY_EXTERNAL = "use_youtube_app";
+    private static final String KEY_APP = "youtube_package";
+
+    /** يفتح عنصراً في تطبيق يوتيوب المثبّت. */
+    interface External {
+        void open(String app, String id, String type);
+    }
+
     private static final long REFRESH_INTERVAL_MS = 10 * 60 * 1000L;
 
     private static final int BG = 0xFF121212;
@@ -84,6 +94,7 @@ final class MoviesPanel {
 
     private final Activity activity;
     private final Runnable onClose;
+    private final External external;
     private boolean held = false;       // الأذان يعمل الآن
     private boolean destroyed = false;
     private AlertDialog dialog;
@@ -99,9 +110,10 @@ final class MoviesPanel {
     private View customView;
     private WebChromeClient.CustomViewCallback customCallback;
 
-    MoviesPanel(Activity activity, Runnable onClose) {
+    MoviesPanel(Activity activity, Runnable onClose, External external) {
         this.activity = activity;
         this.onClose = onClose;
+        this.external = external;
 
         loadLists();
         setupAdapter();
@@ -396,6 +408,44 @@ final class MoviesPanel {
         currentId = item[1];
         prefs().edit().putString(KEY_LAST_ID, currentId).apply();
         adapter.notifyDataSetChanged();
+        if (useYouTubeApp()) {
+            playInApp(item);
+        } else {
+            playHere(item);
+        }
+    }
+
+    /** على أندرويد 6 فما دون يكون المشغّل الداخلي (WebView) قديماً غالباً، فالافتراضي تطبيق يوتيوب. */
+    private boolean useYouTubeApp() {
+        return prefs().getBoolean(KEY_EXTERNAL, Build.VERSION.SDK_INT <= 23);
+    }
+
+    private void playInApp(final String[] item) {
+        String app = YouTubeApp.find(activity, prefs().getString(KEY_APP, null));
+        if (app != null) {
+            external.open(app, item[1], item[2]);
+            return;
+        }
+        // اسم حزمة غير معروف: يختار المستخدم التطبيق مرة واحدة
+        final List<String[]> apps = YouTubeApp.candidates(activity);
+        if (apps.isEmpty()) {
+            Toast.makeText(activity, "لم أجد تطبيق يوتيوب على الجهاز", Toast.LENGTH_LONG).show();
+            playHere(item);
+            return;
+        }
+        String[] names = new String[apps.size()];
+        for (int i = 0; i < names.length; i++) names[i] = apps.get(i)[0];
+        dialog = new AlertDialog.Builder(activity)
+                .setTitle("اختر تطبيق يوتيوب")
+                .setItems(names, (d, which) -> {
+                    prefs().edit().putString(KEY_APP, apps.get(which)[1]).apply();
+                    external.open(apps.get(which)[1], item[1], item[2]);
+                })
+                .setNegativeButton("إلغاء", null)
+                .show();
+    }
+
+    private void playHere(String[] item) {
         playing = true;
         buildLayout();
         web.requestFocus();
@@ -509,10 +559,24 @@ final class MoviesPanel {
         title.setTextColor(ACCENT);
         title.setTextSize(24);
 
+        Button mode = new Button(activity);
+        mode.setText(useYouTubeApp() ? "المشغّل: تطبيق يوتيوب" : "المشغّل: داخلي");
+        mode.setTextColor(Color.WHITE);
+        mode.setBackground(focusable(0xFF333333));
+        mode.setOnClickListener(v -> {
+            boolean app = !useYouTubeApp();
+            prefs().edit().putBoolean(KEY_EXTERNAL, app).remove(KEY_APP).apply();
+            ((Button) v).setText(app ? "المشغّل: تطبيق يوتيوب" : "المشغّل: داخلي");
+        });
+
         LinearLayout header = new LinearLayout(activity);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(title, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams modeLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        modeLp.setMarginEnd(dp(12));
+        header.addView(mode, modeLp);
         header.addView(add);
         LinearLayout.LayoutParams exitLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);

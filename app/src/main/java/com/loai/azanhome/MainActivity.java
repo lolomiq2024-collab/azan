@@ -42,6 +42,13 @@ public class MainActivity extends Activity {
     private FrameLayout root;
     private MoviesPanel movies;     // أفلام ومسلسلات (يوتيوب)، فوق الصفحة
     private boolean adhanActive = false;
+    private final AwayState away = new AwayState();   // المستخدم في تطبيق يوتيوب
+    private boolean inFront = false;
+    /** أقصى انتظار لبدء الأذان بعد العودة له. */
+    private static final long ADHAN_WAIT_MS = 90000;
+    private final Runnable adhanNeverCame = () -> {
+        if (!adhanActive && away.waitingForAdhan()) away.expire();
+    };
     private static final int REQ_PLAYER = 10;
     private static final int REQ_HOME_ROLE = 11;
     private static final int REQ_BROWSER = 12;
@@ -120,9 +127,14 @@ public class MainActivity extends Activity {
         public void adhanStarted() {
             runOnUiThread(() -> {
                 adhanActive = true;
+                if (web != null) web.removeCallbacks(adhanNeverCame);
                 if (movies != null) {
                     movies.hold();
                     pageFocus(true);
+                }
+                if (away.adhanStarted()) {
+                    AdhanReturn.cancel(MainActivity.this);
+                    if (!inFront) bringToFront();
                 }
             });
         }
@@ -135,6 +147,11 @@ public class MainActivity extends Activity {
                 if (movies != null) {
                     pageFocus(false);
                     movies.release();
+                }
+                String app = away.adhanEnded(inFront);
+                if (app != null) {
+                    if (YouTubeApp.resume(MainActivity.this, app)) scheduleReturn(app);
+                    else away.expire();
                 }
             });
         }
@@ -257,6 +274,56 @@ public class MainActivity extends Activity {
 
         web.loadUrl(START_URL);
         web.requestFocus();
+        handleAdhanReturn(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleAdhanReturn(intent);
+    }
+
+    /** وصلنا من منبّه الأذان: نتذكر أن علينا الرجوع إلى يوتيوب بعده. */
+    private void handleAdhanReturn(Intent intent) {
+        if (intent == null || !AdhanReturn.ACTION.equals(intent.getAction())) return;
+        long late = System.currentTimeMillis() - intent.getLongExtra(AdhanReturn.EXTRA_AT, 0);
+        if (late < ADHAN_WAIT_MS) away.alarm(intent.getStringExtra(AdhanReturn.EXTRA_APP));
+    }
+
+    private void bringToFront() {
+        try {
+            startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** يضبط منبّه العودة على وقت الأذان القادم كما تحسبه الصفحة. */
+    private void scheduleReturn(final String app) {
+        if (web == null) return;
+        web.evaluateJavascript("nextPrayer(Date.now()).t", value -> {
+            try {
+                AdhanReturn.schedule(this, (long) Double.parseDouble(value), app);
+            } catch (NumberFormatException ignored) {
+            }
+        });
+    }
+
+    /** يفتح قائمة أو فيديو في تطبيق يوتيوب المثبّت. */
+    private void openInYouTube(String app, String id, String type) {
+        if (adhanActive) return;
+        YouTubeApp.Result result = YouTubeApp.open(this, app, id, type);
+        if (result == YouTubeApp.Result.FAILED) {
+            toast("تعذّر فتح تطبيق يوتيوب");
+            return;
+        }
+        if (result == YouTubeApp.Result.OPENED_APP_ONLY) {
+            toast("فُتح يوتيوب، لكنه لا يقبل فتح الرابط مباشرة");
+        } else if (Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(this)) {
+            toast("لن يعود التطبيق وقت الأذان إلا بعد تفعيل إذن «العرض فوق التطبيقات»");
+        }
+        away.opened(app);
+        scheduleReturn(app);
     }
 
     /** يفتح أول لانشر في الجهاز غير هذا التطبيق. إن لم يوجد يبقى التطبيق ظاهراً. */
@@ -289,7 +356,7 @@ public class MainActivity extends Activity {
             if (movies != null) root.removeView(movies.view());
             movies = null;
             pageFocus(true);
-        });
+        }, this::openInYouTube);
         pageFocus(false);
         root.addView(movies.view(), new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -436,10 +503,17 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         immersive();
+        inFront = true;
         if (web != null) {
             web.onResume();
         }
         if (movies != null) movies.onResume();
+        if (away.resumed()) {
+            AdhanReturn.cancel(this);   // عاد المستخدم بنفسه
+        } else if (away.waitingForAdhan() && web != null) {
+            web.removeCallbacks(adhanNeverCame);
+            web.postDelayed(adhanNeverCame, ADHAN_WAIT_MS);
+        }
         browserOpen = false;
         // العودة من المشغّل. لا نعتمد على onActivityResult: لا يصل دائماً إن ماتت العملية
         if (playerOpen) {
@@ -456,6 +530,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        inFront = false;
         if (movies != null) movies.onPause();
         super.onPause();
     }

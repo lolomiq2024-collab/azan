@@ -16,6 +16,14 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
+        <!-- للعثور على تطبيق يوتيوب -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" android:host="www.youtube.com" />
+        </intent>
+        <package android:name="com.google.android.youtube.tv" />
+        <package android:name="com.google.android.youtube.googletv" />
+        <package android:name="com.google.android.youtube" />
     </queries>
 
     <application
