@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ main, master, Tg, Tg-backup, youtube-movies, youtube-movies-android5, movies-browser ]
+    branches: [ main, master, Tg, Tg-backup, youtube-movies, youtube-movies-android5, movies-browser, movies-gecko ]
   workflow_dispatch:
 
 jobs:
@@ -28,6 +28,10 @@ jobs:
           fi
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
+      - name: Show GeckoView version and APK size
+        run: |
+          gradle -q app:dependencyInsight --configuration debugRuntimeClasspath --dependency geckoview --no-daemon
+          ls -l app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: AzanHome-apk

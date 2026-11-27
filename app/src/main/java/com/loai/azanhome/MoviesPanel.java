@@ -66,6 +66,9 @@ final class MoviesPanel {
 
     private static final String KEY_EXTERNAL = "use_youtube_app";
     private static final String KEY_APP = "youtube_package";
+    private static final String KEY_GECKO = "use_gecko";
+    // علامة تبقى إن انهار التطبيق أثناء تشغيل محرك Firefox قبل أن يبدأ الفيديو
+    private static final String KEY_GECKO_STARTING = "gecko_starting";
 
     /** يفتح عنصراً في تطبيق يوتيوب المثبّت. */
     interface External {
@@ -103,7 +106,7 @@ final class MoviesPanel {
     private final FrameLayout rootFrame;
     private LinearLayout content;
     private FrameLayout playerHolder;
-    private WebView web;
+    private MoviePlayer player;     // المشغّل الداخلي، يُنشأ عند أول تشغيل
     private BaseAdapter adapter;
 
     private WebChromeClient chrome;
@@ -115,9 +118,9 @@ final class MoviesPanel {
         this.onClose = onClose;
         this.external = external;
 
+        recoverFromGeckoCrash();
         loadLists();
         setupAdapter();
-        setupWebView();
 
         rootFrame = new FrameLayout(activity);
         rootFrame.setBackgroundColor(BG);
@@ -295,110 +298,206 @@ final class MoviesPanel {
 
     // ---------- المشغّل ----------
 
-    private void setupWebView() {
-        web = new WebView(activity);
-        web.setBackgroundColor(Color.BLACK);
-        WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setMediaPlaybackRequiresUserGesture(false);
-        s.setLoadWithOverviewMode(true);
-        s.setUseWideViewPort(true);
+    private final class WebPlayer implements MoviePlayer {
+        private final WebView web;
 
-        web.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return true; // لا نسمح بالخروج من المشغّل المضمّن
-            }
+        WebPlayer() {
+            web = new WebView(activity);
+            web.setBackgroundColor(Color.BLACK);
+            WebSettings s = web.getSettings();
+            s.setJavaScriptEnabled(true);
+            s.setDomStorageEnabled(true);
+            s.setMediaPlaybackRequiresUserGesture(false);
+            s.setLoadWithOverviewMode(true);
+            s.setUseWideViewPort(true);
 
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                if (held) view.evaluateJavascript("window.adhanHold&&adhanHold();", null);
-            }
-
-            @Override
-            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-                close();   // انهيار عملية العرض: نغلق اللوحة ويبقى التطبيق يعمل
-                return true;
-            }
-        });
-
-        chrome = new WebChromeClient() {
-            @Override
-            public void onShowCustomView(View view, CustomViewCallback callback) {
-                if (customView != null) {
-                    callback.onCustomViewHidden();
-                    return;
+            web.setWebViewClient(new WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                    return true; // لا نسمح بالخروج من المشغّل المضمّن
                 }
-                customView = view;
-                customCallback = callback;
-                rootFrame.addView(view, new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                content.setVisibility(View.GONE);
-            }
 
-            @Override
-            public void onHideCustomView() {
-                if (customView == null) return;
-                rootFrame.removeView(customView);
-                customView = null;
-                content.setVisibility(View.VISIBLE);
-                if (customCallback != null) {
-                    customCallback.onCustomViewHidden();
-                    customCallback = null;
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    if (held) view.evaluateJavascript("window.adhanHold&&adhanHold();", null);
                 }
-            }
-        };
-        web.setWebChromeClient(chrome);
+
+                @Override
+                public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                    close();   // انهيار عملية العرض: نغلق اللوحة ويبقى التطبيق يعمل
+                    return true;
+                }
+            });
+
+            chrome = new WebChromeClient() {
+                @Override
+                public void onShowCustomView(View view, CustomViewCallback callback) {
+                    if (customView != null) {
+                        callback.onCustomViewHidden();
+                        return;
+                    }
+                    customView = view;
+                    customCallback = callback;
+                    rootFrame.addView(view, new FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                    content.setVisibility(View.GONE);
+                }
+
+                @Override
+                public void onHideCustomView() {
+                    if (customView == null) return;
+                    rootFrame.removeView(customView);
+                    customView = null;
+                    content.setVisibility(View.VISIBLE);
+                    if (customCallback != null) {
+                        customCallback.onCustomViewHidden();
+                        customCallback = null;
+                    }
+                }
+            };
+            web.setWebChromeClient(chrome);
+        }
+
+        @Override
+        public View view() {
+            return web;
+        }
+
+        @Override
+        public void load(String id, String type) {
+            web.loadDataWithBaseURL(ORIGIN, PlayerPage.html(id, type, ORIGIN, ""),
+                    "text/html", "utf-8", null);
+        }
+
+        @Override
+        public void command(String command) {
+            web.evaluateJavascript("window.cmd&&cmd('" + command + "');", null);
+        }
+
+        @Override
+        public void episodes(Episodes callback) {
+            web.evaluateJavascript("window.info?info():null", value -> {
+                int count = 0;
+                int index = 0;
+                try {
+                    JSONArray a = new JSONArray(value);
+                    count = a.getInt(0);
+                    index = a.optInt(1, 0);
+                } catch (Exception ignored) {
+                }
+                callback.result(count, index);
+            });
+        }
+
+        @Override
+        public void hold() {
+            // نوقف عبر المشغّل أولاً (كي يعرف هل كان يعمل) ثم نجمّد الـ WebView احتياطاً
+            web.evaluateJavascript("window.adhanHold&&adhanHold();", value -> {
+                if (held && !destroyed) web.onPause();
+            });
+        }
+
+        @Override
+        public void release() {
+            web.onResume();
+            web.evaluateJavascript("window.adhanRelease&&adhanRelease();", null);
+        }
+
+        @Override
+        public void onPause() {
+            web.onPause();
+        }
+
+        @Override
+        public void onResume() {
+            if (!held) web.onResume();
+        }
+
+        @Override
+        public void stop() {
+            web.loadUrl("about:blank");
+        }
+
+        @Override
+        public void destroy() {
+            if (web.getParent() != null) ((ViewGroup) web.getParent()).removeView(web);
+            web.destroy();
+        }
     }
 
-    // type: p = قائمة تشغيل ، v = فيديو مفرد (يعاد تشغيله تلقائياً عند انتهائه)
-    private static String playerHtml(String id, String type) {
-        boolean video = "v".equals(type);
-        String src = video ? "videoId:'" + id + "'," : "";
-        String vars = video
-                ? "loop:1,playlist:'" + id + "',"
-                : "listType:'playlist',list:'" + id + "',loop:1,";
-        return "<!DOCTYPE html><html><head>"
-                + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                + "<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;position:relative}"
-                + "#p{width:100%;height:100%}"
-                + "#m{display:none;position:absolute;left:8%;right:8%;top:30%;z-index:9;padding:18px;"
-                + "border-radius:12px;background:rgba(0,0,0,.85);color:#fff;font:20px/1.8 sans-serif;"
-                + "text-align:center;direction:rtl;pointer-events:none}"
-                + "</style></head><body><div id=\"p\"></div><div id=\"m\"></div>"
-                + "<script src=\"https://www.youtube.com/iframe_api\"></script>"
-                + "<script>"
-                + "var player,ready=false,errs=0,hold=false,again=false,played=false;"
-                // إن لم يعمل الفيديو نُظهر السبب وإصدار WebView (القديم لا يشغّل يوتيوب)
-                + "var ver=(navigator.userAgent.match(/Chrome\\/(\\d+)/)||[0,'غير معروف'])[1];"
-                + "function msg(t){var d=document.getElementById('m');"
-                + "d.innerHTML=t?t+'<br>إصدار WebView في هذه الشاشة: '+ver:'';d.style.display=t?'block':'none';}"
-                + "setTimeout(function(){if(!played&&!hold)msg(ready?'لم يبدأ الفيديو':'لم يتحمّل مشغّل يوتيوب');},30000);"
-                // الأذان: إيقاف مؤقت ثم إكمال (لا يُستأنف ما أوقفه المستخدم بنفسه)
-                + "function st(){try{return ready?player.getPlayerState():-1;}catch(x){return -1;}}"
-                + "function halt(){try{if(ready)player.pauseVideo();}catch(x){}}"
-                + "function adhanHold(){if(hold)return;hold=true;again=st()!==2;halt();}"
-                + "function adhanRelease(){if(!hold)return;hold=false;"
-                + "if(again){try{if(ready)player.playVideo();}catch(x){}}}"
-                + "setInterval(function(){var s=st();if(hold&&(s===1||s===3))halt();},400);"
-                // إطار المشغّل بمقاس الشاشة تماماً: يوتيوب يحافظ على أبعاد الفيديو دون قص أو تمطيط
-                + "function fit(){var f=document.querySelector('iframe');if(!f)return;"
-                + "f.style.position='absolute';f.style.left='0';f.style.top='0';"
-                + "f.style.width='100%';f.style.height='100%';}"
-                + "window.addEventListener('resize',fit);"
-                + "function onYouTubeIframeAPIReady(){"
-                + "player=new YT.Player('p',{width:'100%',height:'100%'," + src
-                + "playerVars:{" + vars + "autoplay:1,playsinline:1,rel:0,enablejsapi:1,"
-                + "origin:'" + ORIGIN + "',widget_referrer:'" + ORIGIN + "'},"
-                + "events:{"
-                + "onReady:function(e){ready=true;fit();if(!hold)e.target.playVideo();setTimeout(fit,500);},"
-                + "onStateChange:function(e){fit();if(hold){if(e.data===1||e.data===3)halt();return;}if(e.data===1){errs=0;played=true;msg('');}"
-                + (video ? "if(e.data===0){try{player.seekTo(0);player.playVideo();}catch(x){}}" : "")
-                + "},"
-                + "onError:function(e){if(hold)return;msg('خطأ يوتيوب رقم '+e.data);errs++;if(errs<60){try{player.nextVideo();}catch(x){}}}"
-                + "}});}"
-                + "</script></body></html>";
+    // ---------- اختيار المشغّل ----------
+
+    private boolean useGecko() {
+        return GeckoPlayer.supported() && prefs().getBoolean(KEY_GECKO, false);
+    }
+
+    /** إن انهار التطبيق أثناء تشغيل Firefox نرجع إلى تطبيق يوتيوب حتى لا يتكرر الانهيار. */
+    private void recoverFromGeckoCrash() {
+        if (!prefs().getBoolean(KEY_GECKO_STARTING, false)) return;
+        prefs().edit().remove(KEY_GECKO_STARTING).putBoolean(KEY_GECKO, false)
+                .putBoolean(KEY_EXTERNAL, true).apply();
+        Toast.makeText(activity, "توقف مشغّل Firefox في المرة السابقة، رجعنا إلى تطبيق يوتيوب",
+                Toast.LENGTH_LONG).show();
+    }
+
+    private void geckoSettled() {
+        if (prefs().getBoolean(KEY_GECKO_STARTING, false)) {
+            prefs().edit().remove(KEY_GECKO_STARTING).apply();
+        }
+    }
+
+    /** يجهّز المشغّل المختار. false إن تعذّر تشغيله. */
+    private boolean preparePlayer() {
+        boolean gecko = useGecko();
+        if (player != null && (player instanceof GeckoPlayer) == gecko) return true;
+        if (player != null) {
+            player.destroy();
+            player = null;
+        }
+        if (!gecko) {
+            player = new WebPlayer();
+            return true;
+        }
+        try {
+            player = new GeckoPlayer(activity, new GeckoPlayer.Events() {
+                @Override
+                public void playing() {
+                    geckoSettled();
+                }
+
+                @Override
+                public void failed() {
+                    if (destroyed) return;
+                    Toast.makeText(activity, "توقف مشغّل Firefox (قد تكون ذاكرة الشاشة غير كافية)",
+                            Toast.LENGTH_LONG).show();
+                    goHome();
+                }
+            });
+            return true;
+        } catch (Throwable e) {     // يشمل فشل تحميل مكتبات المحرك
+            Toast.makeText(activity, "تعذّر تشغيل مشغّل Firefox على هذه الشاشة", Toast.LENGTH_LONG).show();
+            return false;
+        }
+    }
+
+    private String modeLabel() {
+        if (useGecko()) return "المشغّل: Firefox (تجريبي)";
+        return useYouTubeApp() ? "المشغّل: تطبيق يوتيوب" : "المشغّل: داخلي";
+    }
+
+    /** تطبيق يوتيوب ← داخلي ← Firefox ← تطبيق يوتيوب. */
+    private void nextMode() {
+        boolean gecko = false;
+        boolean app = false;
+        if (useYouTubeApp()) {
+            // التالي: الداخلي
+        } else if (!useGecko() && GeckoPlayer.supported()) {
+            gecko = true;
+        } else {
+            app = true;
+        }
+        prefs().edit().putBoolean(KEY_GECKO, gecko).putBoolean(KEY_EXTERNAL, app)
+                .remove(KEY_APP).apply();
     }
 
     private void play(int index) {
@@ -417,7 +516,7 @@ final class MoviesPanel {
 
     /** على أندرويد 6 فما دون يكون المشغّل الداخلي (WebView) قديماً غالباً، فالافتراضي تطبيق يوتيوب. */
     private boolean useYouTubeApp() {
-        return prefs().getBoolean(KEY_EXTERNAL, Build.VERSION.SDK_INT <= 23);
+        return !useGecko() && prefs().getBoolean(KEY_EXTERNAL, Build.VERSION.SDK_INT <= 23);
     }
 
     private void playInApp(final String[] item) {
@@ -446,10 +545,18 @@ final class MoviesPanel {
     }
 
     private void playHere(String[] item) {
+        if (useGecko()) {
+            // commit وليس apply: يجب أن تُحفظ العلامة قبل تشغيل المحرك
+            prefs().edit().putBoolean(KEY_GECKO_STARTING, true).commit();
+        }
+        if (!preparePlayer()) {
+            geckoSettled();
+            return;
+        }
         playing = true;
         buildLayout();
-        web.requestFocus();
-        web.loadDataWithBaseURL(ORIGIN, playerHtml(item[1], item[2]), "text/html", "utf-8", null);
+        player.view().requestFocus();
+        player.load(item[1], item[2]);
     }
 
     // العودة إلى الصفحة الرئيسية وإيقاف التشغيل
@@ -457,7 +564,8 @@ final class MoviesPanel {
         playing = false;
         currentId = null;
         current = -1;
-        web.loadUrl("about:blank");
+        if (player != null) player.stop();
+        geckoSettled();
         buildLayout();
         adapter.notifyDataSetChanged();
         listView.requestFocus();
@@ -502,7 +610,8 @@ final class MoviesPanel {
     }
 
     private void buildLayout() {
-        if (web.getParent() != null) ((ViewGroup) web.getParent()).removeView(web);
+        View screen = player == null ? null : player.view();
+        if (screen != null && screen.getParent() != null) ((ViewGroup) screen.getParent()).removeView(screen);
         if (content != null) rootFrame.removeView(content);
 
         content = new LinearLayout(activity);
@@ -512,8 +621,10 @@ final class MoviesPanel {
 
         playerHolder = new FrameLayout(activity);
         playerHolder.setBackgroundColor(Color.BLACK);
-        playerHolder.addView(web, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (screen != null) {
+            playerHolder.addView(screen, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
 
         TextView toggle = new TextView(activity);
         toggle.setText("☰");
@@ -560,13 +671,12 @@ final class MoviesPanel {
         title.setTextSize(24);
 
         Button mode = new Button(activity);
-        mode.setText(useYouTubeApp() ? "المشغّل: تطبيق يوتيوب" : "المشغّل: داخلي");
+        mode.setText(modeLabel());
         mode.setTextColor(Color.WHITE);
         mode.setBackground(focusable(0xFF333333));
         mode.setOnClickListener(v -> {
-            boolean app = !useYouTubeApp();
-            prefs().edit().putBoolean(KEY_EXTERNAL, app).remove(KEY_APP).apply();
-            ((Button) v).setText(app ? "المشغّل: تطبيق يوتيوب" : "المشغّل: داخلي");
+            nextMode();
+            ((Button) v).setText(modeLabel());
         });
 
         LinearLayout header = new LinearLayout(activity);
@@ -695,19 +805,10 @@ final class MoviesPanel {
     void showEpisodes() {
         if (!playing || held || destroyed) return;
         final String id = currentId;
-        web.evaluateJavascript("(function(){if(!window.player||!ready)return null;"
-                + "var l=player.getPlaylist();return [l?l.length:0,player.getPlaylistIndex()];})()", value -> {
+        player.episodes((count, index) -> {
             // ربما بدأ الأذان أو خرج المستخدم قبل وصول الرد
             if (!playing || held || destroyed || id == null || !id.equals(currentId)) return;
             if (dialog != null && dialog.isShowing()) return;
-            int count = 0;
-            int index = 0;
-            try {
-                JSONArray a = new JSONArray(value);
-                count = a.getInt(0);
-                index = a.optInt(1, 0);
-            } catch (Exception ignored) {
-            }
             if (count < 2) {
                 Toast.makeText(activity, "قائمة الحلقات غير متاحة الآن", Toast.LENGTH_SHORT).show();
                 return;
@@ -718,8 +819,8 @@ final class MoviesPanel {
                     .setTitle("اختر الحلقة")
                     .setSingleChoiceItems(names, Math.max(0, Math.min(index, count - 1)), (d, which) -> {
                         d.dismiss();
-                        web.evaluateJavascript("errs=0;player.playVideoAt(" + which + ");", null);
-                        web.requestFocus();
+                        player.command("at:" + which);
+                        player.view().requestFocus();
                     })
                     .setNegativeButton("إلغاء", null)
                     .show();
@@ -737,11 +838,7 @@ final class MoviesPanel {
             dialog = null;
         }
         rootFrame.setVisibility(View.GONE);
-        final WebView w = web;
-        // نوقف عبر المشغّل أولاً (كي يعرف هل كان يعمل) ثم نجمّد الـ WebView احتياطاً
-        w.evaluateJavascript("window.adhanHold&&adhanHold();", value -> {
-            if (held && !destroyed) w.onPause();
-        });
+        if (player != null) player.hold();
     }
 
     /** انتهاء الأذان: تعود اللوحة ويكمل الفيديو من حيث توقف. */
@@ -749,8 +846,7 @@ final class MoviesPanel {
         if (!held || destroyed) return;
         held = false;
         rootFrame.setVisibility(View.VISIBLE);
-        web.onResume();
-        web.evaluateJavascript("window.adhanRelease&&adhanRelease();", null);
+        if (player != null) player.release();
         focus();
     }
 
@@ -760,7 +856,7 @@ final class MoviesPanel {
 
     void focus() {
         if (customView != null) customView.requestFocus();
-        else if (playing) web.requestFocus();
+        else if (playing) player.view().requestFocus();
         else if (listView != null) listView.requestFocus();
     }
 
@@ -784,41 +880,41 @@ final class MoviesPanel {
             if (e.getAction() == KeyEvent.ACTION_UP) showEpisodes();
             return true;
         }
-        final String code;
+        final String command;
         switch (e.getKeyCode()) {
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
             case KeyEvent.KEYCODE_SPACE:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-                code = "st()===1?player.pauseVideo():player.playVideo()";
+                command = "toggle";
                 break;
             case KeyEvent.KEYCODE_MEDIA_PLAY:
-                code = "player.playVideo()";
+                command = "play";
                 break;
             case KeyEvent.KEYCODE_MEDIA_PAUSE:
-                code = "player.pauseVideo()";
+                command = "pause";
                 break;
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_MEDIA_REWIND:
-                code = "player.seekTo(Math.max(0,player.getCurrentTime()-10),true)";
+                command = "back";
                 break;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
-                code = "player.seekTo(player.getCurrentTime()+10,true)";
+                command = "forward";
                 break;
             case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
-                code = "player.previousVideo()";
+                command = "prev";
                 break;
             case KeyEvent.KEYCODE_DPAD_DOWN:
             case KeyEvent.KEYCODE_MEDIA_NEXT:
-                code = "player.nextVideo()";
+                command = "next";
                 break;
             default:
                 return false;
         }
         if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
-            web.evaluateJavascript("if(window.player&&ready){" + code + ";}", null);
+            player.command(command);
         }
         return true;
     }
@@ -826,12 +922,12 @@ final class MoviesPanel {
     // ---------- دورة الحياة ----------
 
     void onPause() {
-        if (!destroyed) web.onPause();
+        if (!destroyed && player != null) player.onPause();
     }
 
     void onResume() {
         if (destroyed) return;
-        if (!held) web.onResume();
+        if (player != null) player.onResume();
         if (System.currentTimeMillis() - lastFetch > REFRESH_INTERVAL_MS) fetchRemote();
     }
 
@@ -845,7 +941,7 @@ final class MoviesPanel {
         if (destroyed) return;
         destroyed = true;
         if (dialog != null) dialog.dismiss();
-        if (web.getParent() != null) ((ViewGroup) web.getParent()).removeView(web);
-        web.destroy();
+        geckoSettled();
+        if (player != null) player.destroy();
     }
 }

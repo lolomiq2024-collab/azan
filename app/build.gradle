@@ -10,8 +10,8 @@ android {
         applicationId 'com.loai.azanhome'
         minSdk 21
         targetSdk 34
-        versionCode 18
-        versionName '2.7'
+        versionCode 19
+        versionName '2.8-gecko'
     }
 
     // توقيع ثابت اختياري: إن حُدّد DEBUG_KEYSTORE_FILE يُوقَّع الـ APK به كي يُثبَّت التحديث فوق النسخة السابقة
@@ -45,6 +45,13 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    // مكتبات محرك Firefox تُفك عند التثبيت: بدون ذلك يفشل فك ترميز الصوت على أندرويد القديم
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     // لا تضغط ملفات الفيديو/الصوت داخل الـ APK كي تعمل من assets
     androidResources {
         noCompress 'mp4', 'mp3'
@@ -58,4 +65,7 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer-dash:1.3.1'
     implementation 'androidx.media3:media3-datasource:1.3.1'
     implementation 'androidx.media3:media3-datasource-okhttp:1.3.1'
+
+    // محرك Firefox للقوائم (تجريبي). 143 آخر إصدار يدعم أندرويد 5، ومكتباته هنا لمعالجات ARM 32-bit فقط
+    implementation 'org.mozilla.geckoview:geckoview-armeabi-v7a:143.+'
 }
