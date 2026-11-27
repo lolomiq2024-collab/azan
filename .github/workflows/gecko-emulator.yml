@@ -1,0 +1,89 @@
+# برنش اختبار مؤقت: يشغّل مشغّل Firefox على محاكي أندرويد 5 ويطبع سجلّه. لا يُدمج.
+name: Gecko emulator test
+
+on:
+  push:
+    branches: [ gecko-emu ]
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Patch for x86 and add a test entry point
+        run: |
+          python3 - <<'PY'
+          def edit(p, a, b):
+              s = open(p, encoding='utf-8').read().replace('\r\n', '\n')
+              assert a in s, (p, a)
+              open(p, 'w', encoding='utf-8').write(s.replace(a, b))
+          J = 'app/src/main/java/com/loai/azanhome/'
+          edit('app/build.gradle', 'geckoview-armeabi-v7a', 'geckoview-x86')
+          edit(J + 'GeckoPlayer.java', '.contains("armeabi-v7a")', '.contains("x86")')
+          edit(J + 'GeckoPlayer.java', '.aboutConfigEnabled(false)', '.aboutConfigEnabled(false).consoleOutput(true)')
+          edit(J + 'MainActivity.java', '        handleAdhanReturn(getIntent());\n',
+               '        handleAdhanReturn(getIntent());\n'
+               '        web.postDelayed(() -> { showMovies(); if (movies != null) movies.testPlay(); }, 15000);\n')
+          edit(J + 'MoviesPanel.java', '    View view() {\n',
+               '    void testPlay() {\n'
+               '        prefs().edit().putBoolean(KEY_GECKO, true).commit();\n'
+               '        android.util.Log.i("AzanGecko", "test: playing first item");\n'
+               '        play(0);\n'
+               '    }\n\n    View view() {\n')
+          PY
+      - name: Build x86 APK
+        run: gradle assembleDebug --no-daemon -q
+      - name: Prepare emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          SM=$ANDROID_HOME/cmdline-tools/latest/bin
+          yes | $SM/sdkmanager --licenses > /dev/null || true
+          $SM/sdkmanager "platform-tools" "emulator" "system-images;android-21;default;x86" > /dev/null
+          echo no | $SM/avdmanager create avd -n tv -k "system-images;android-21;default;x86" --force
+          CFG=$HOME/.android/avd/tv.avd/config.ini
+          [ -f $CFG ] || CFG=$(find $HOME -name config.ini -path '*tv.avd*' | head -1)
+          printf 'hw.lcd.width=1280\nhw.lcd.height=720\nhw.lcd.density=213\nhw.ramSize=2048\ndisk.dataPartition.size=2G\n' >> $CFG
+      - name: Run the Firefox player on Android 5
+        run: |
+          export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
+          emulator -avd tv -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot > emulator.log 2>&1 &
+          timeout 400 adb wait-for-device || { tail -50 emulator.log; exit 1; }
+          for i in $(seq 1 120); do
+            [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break; sleep 5
+          done
+          sleep 20
+          echo "== system"; adb shell getprop ro.build.version.release; adb shell date
+          adb install -r app/build/outputs/apk/debug/app-debug.apk
+          adb logcat -c
+          adb shell am start -n com.loai.azanhome/.MainActivity
+          for t in 45 90; do
+            sleep 45
+            adb shell screencap -p /sdcard/s.png && adb pull /sdcard/s.png s$t.png > /dev/null
+          done
+          echo "== screen colours (centre area)"
+          pip install -q pillow
+          python3 - <<'PY'
+          from PIL import Image
+          for t in (45, 90):
+              im = Image.open('s%d.png' % t).convert('RGB')
+              w, h = im.size
+              c = im.crop((w // 4, h // 4, 3 * w // 4, 3 * h // 4))
+              px = list(c.getdata()); n = len(px)
+              white = sum(1 for p in px if min(p) > 235) / n
+              black = sum(1 for p in px if max(p) < 20) / n
+              print('t=%d size=%s white=%.2f black=%.2f' % (t, im.size, white, black))
+          PY
+          adb logcat -d -v time > logcat.txt
+          echo "== app stages"; grep -E 'AzanGecko' logcat.txt || true
+          echo "== crashes"; grep -E 'AndroidRuntime|F/libc|F/DEBUG|Fatal signal|ANR in' logcat.txt | head -60 || true
+          echo "== engine"; grep -iE 'gecko|GeckoConsole|nss|ssl' logcat.txt | grep -v AzanGecko | tail -150 || true
