@@ -5,29 +5,24 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.StateListDrawable;
-import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -39,7 +34,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * أفلام ومسلسلات: قوائم يوتيوب تُعرض فوق الصفحة بملء الشاشة داخل MainActivity.
+ * أفلام ومسلسلات: صفحة assets/movies.html تُعرض فوق الصفحة الرئيسية بملء الشاشة داخل MainActivity.
+ * التطبيق يحمّل القوائم ويمرّرها للصفحة، والصفحة تعرضها وتشغّلها.
  * عند الأذان تُخفى اللوحة ويتوقف الفيديو (hold)، وبعد انتهائه تعود ويكمل من مكانه (release).
  */
 final class MoviesPanel {
@@ -64,8 +60,7 @@ final class MoviesPanel {
 
     private static final long REFRESH_INTERVAL_MS = 10 * 60 * 1000L;
 
-    private static final int BG = 0xFF121212;
-    private static final int ACCENT = 0xFFF5B301;
+    private static final int BG = 0xFF0F1720;
 
     private static final Pattern LIST_PARAM = Pattern.compile("[?&]list=([A-Za-z0-9_-]+)");
     private static final Pattern VIDEO_URL =
@@ -77,7 +72,6 @@ final class MoviesPanel {
     private final ArrayList<String[]> remote = new ArrayList<>();
     private final ArrayList<String[]> user = new ArrayList<>();
     private final ArrayList<String[]> lists = new ArrayList<>();
-    private int current = -1;
     private String currentId = null;
     private boolean playing = false;
     private long lastFetch = 0;
@@ -87,13 +81,10 @@ final class MoviesPanel {
     private boolean held = false;       // الأذان يعمل الآن
     private boolean destroyed = false;
     private AlertDialog dialog;
-    private ListView listView;
+    private boolean pageReady = false;
 
     private final FrameLayout rootFrame;
-    private LinearLayout content;
-    private FrameLayout playerHolder;
     private WebView web;
-    private BaseAdapter adapter;
 
     private WebChromeClient chrome;
     private View customView;
@@ -104,13 +95,17 @@ final class MoviesPanel {
         this.onClose = onClose;
 
         loadLists();
-        setupAdapter();
         setupWebView();
 
         rootFrame = new FrameLayout(activity);
         rootFrame.setBackgroundColor(BG);
         rootFrame.setClickable(true);   // لا تمرّ اللمسات إلى الصفحة التي تحتها
-        buildLayout();
+        rootFrame.addView(web, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        String page = readAsset("movies.html");
+        if (page != null) {
+            web.loadDataWithBaseURL(ORIGIN, page, "text/html", "utf-8", null);
+        }
 
         fetchRemote();
     }
@@ -133,7 +128,7 @@ final class MoviesPanel {
         if (cached == null || !parseRemote(cached, remote)) {
             remote.clear();
             // قبل أول تحميل ناجح: النسخة المرفقة بالتطبيق من ملف القوائم
-            String bundled = readBundled();
+            String bundled = readAsset("playlists.json");
             if (bundled == null || !parseRemote(bundled, remote)) {
                 for (String[] d : DEFAULTS) remote.add(d);
             }
@@ -154,8 +149,8 @@ final class MoviesPanel {
         rebuild();
     }
 
-    private String readBundled() {
-        try (InputStream in = activity.getAssets().open("playlists.json")) {
+    private String readAsset(String name) {
+        try (InputStream in = activity.getAssets().open(name)) {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             byte[] buf = new byte[4096];
             int n;
@@ -185,15 +180,23 @@ final class MoviesPanel {
         lists.clear();
         lists.addAll(remote);
         lists.addAll(user);
-        current = indexOfId(currentId);
     }
 
-    private int indexOfId(String id) {
-        if (id == null) return -1;
-        for (int i = 0; i < lists.size(); i++) {
-            if (lists.get(i)[1].equals(id)) return i;
+    /** يرسل القوائم إلى الصفحة. */
+    private void sendLists() {
+        if (destroyed || !pageReady) return;
+        JSONArray arr = new JSONArray();
+        try {
+            for (int i = 0; i < lists.size(); i++) {
+                String[] l = lists.get(i);
+                arr.put(new JSONObject().put("name", l[0]).put("id", l[1]).put("type", l[2])
+                        .put("user", i >= remote.size()));
+            }
+        } catch (JSONException ignored) {
         }
-        return -1;
+        // U+2028 و U+2029 صالحان في JSON لا في شيفرة WebView القديم
+        String json = arr.toString().replace("\u2028", " ").replace("\u2029", " ");
+        web.evaluateJavascript("setLists(" + json + ");", null);
     }
 
     // يستخرج {المعرّف, النوع} من رابط يوتيوب (قائمة أو فيديو) أو من معرّف مجرّد
@@ -272,7 +275,7 @@ final class MoviesPanel {
                     remote.clear();
                     remote.addAll(parsed);
                     rebuild();
-                    adapter.notifyDataSetChanged();
+                    sendLists();
                 });
             } catch (Exception ignored) {
             } finally {
@@ -292,6 +295,7 @@ final class MoviesPanel {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
+        web.addJavascriptInterface(new PageBridge(), "Movies");
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -322,7 +326,7 @@ final class MoviesPanel {
                 customCallback = callback;
                 rootFrame.addView(view, new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                content.setVisibility(View.GONE);
+                web.setVisibility(View.INVISIBLE);
             }
 
             @Override
@@ -330,7 +334,7 @@ final class MoviesPanel {
                 if (customView == null) return;
                 rootFrame.removeView(customView);
                 customView = null;
-                content.setVisibility(View.VISIBLE);
+                web.setVisibility(View.VISIBLE);
                 if (customCallback != null) {
                     customCallback.onCustomViewHidden();
                     customCallback = null;
@@ -340,224 +344,70 @@ final class MoviesPanel {
         web.setWebChromeClient(chrome);
     }
 
-    // type: p = قائمة تشغيل ، v = فيديو مفرد (يعاد تشغيله تلقائياً عند انتهائه)
-    private static String playerHtml(String id, String type) {
-        boolean video = "v".equals(type);
-        String src = video ? "videoId:'" + id + "'," : "";
-        String vars = video
-                ? "loop:1,playlist:'" + id + "',"
-                : "listType:'playlist',list:'" + id + "',loop:1,";
-        return "<!DOCTYPE html><html><head>"
-                + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                + "<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;position:relative}"
-                + "#p{width:100%;height:100%}"
-                + "#m{display:none;position:absolute;left:8%;right:8%;top:30%;z-index:9;padding:18px;"
-                + "border-radius:12px;background:rgba(0,0,0,.85);color:#fff;font:20px/1.8 sans-serif;"
-                + "text-align:center;direction:rtl;pointer-events:none}"
-                + "</style></head><body><div id=\"p\"></div><div id=\"m\"></div>"
-                + "<script src=\"https://www.youtube.com/iframe_api\"></script>"
-                + "<script>"
-                + "var player,ready=false,errs=0,hold=false,again=false,played=false;"
-                // إن لم يعمل الفيديو نُظهر السبب وإصدار WebView (القديم لا يشغّل يوتيوب)
-                + "var ver=(navigator.userAgent.match(/Chrome\\/(\\d+)/)||[0,'غير معروف'])[1];"
-                + "function msg(t){var d=document.getElementById('m');"
-                + "d.innerHTML=t?t+'<br>إصدار WebView في هذه الشاشة: '+ver:'';d.style.display=t?'block':'none';}"
-                + "setTimeout(function(){if(!played&&!hold)msg(ready?'لم يبدأ الفيديو':'لم يتحمّل مشغّل يوتيوب');},30000);"
-                // الأذان: إيقاف مؤقت ثم إكمال (لا يُستأنف ما أوقفه المستخدم بنفسه)
-                + "function st(){try{return ready?player.getPlayerState():-1;}catch(x){return -1;}}"
-                + "function halt(){try{if(ready)player.pauseVideo();}catch(x){}}"
-                + "function adhanHold(){if(hold)return;hold=true;again=st()!==2;halt();}"
-                + "function adhanRelease(){if(!hold)return;hold=false;"
-                + "if(again){try{if(ready)player.playVideo();}catch(x){}}}"
-                + "setInterval(function(){var s=st();if(hold&&(s===1||s===3))halt();},400);"
-                // إطار المشغّل بمقاس الشاشة تماماً: يوتيوب يحافظ على أبعاد الفيديو دون قص أو تمطيط
-                + "function fit(){var f=document.querySelector('iframe');if(!f)return;"
-                + "f.style.position='absolute';f.style.left='0';f.style.top='0';"
-                + "f.style.width='100%';f.style.height='100%';}"
-                + "window.addEventListener('resize',fit);"
-                + "function onYouTubeIframeAPIReady(){"
-                + "player=new YT.Player('p',{width:'100%',height:'100%'," + src
-                + "playerVars:{" + vars + "autoplay:1,playsinline:1,rel:0,enablejsapi:1,"
-                + "origin:'" + ORIGIN + "',widget_referrer:'" + ORIGIN + "'},"
-                + "events:{"
-                + "onReady:function(e){ready=true;fit();if(!hold)e.target.playVideo();setTimeout(fit,500);},"
-                + "onStateChange:function(e){fit();if(hold){if(e.data===1||e.data===3)halt();return;}if(e.data===1){errs=0;played=true;msg('');}"
-                + (video ? "if(e.data===0){try{player.seekTo(0);player.playVideo();}catch(x){}}" : "")
-                + "},"
-                + "onError:function(e){if(hold)return;msg('خطأ يوتيوب رقم '+e.data);errs++;if(errs<60){try{player.nextVideo();}catch(x){}}}"
-                + "}});}"
-                + "</script></body></html>";
+    // ---------- جسر الصفحة (window.Movies) ----------
+
+    private void onUi(Runnable action) {
+        activity.runOnUiThread(() -> {
+            if (!destroyed) action.run();
+        });
     }
 
-    private void play(int index) {
-        if (index < 0 || index >= lists.size()) return;
-        String[] item = lists.get(index);
-        current = index;
-        currentId = item[1];
-        prefs().edit().putString(KEY_LAST_ID, currentId).apply();
-        adapter.notifyDataSetChanged();
-        playing = true;
-        buildLayout();
-        web.requestFocus();
-        web.loadDataWithBaseURL(ORIGIN, playerHtml(item[1], item[2]), "text/html", "utf-8", null);
+    private final class PageBridge {
+        @JavascriptInterface
+        public void ready() {
+            onUi(() -> {
+                pageReady = true;
+                sendLists();
+                if (held) web.evaluateJavascript("adhanHold();", null);
+            });
+        }
+
+        @JavascriptInterface
+        public void selected(String id) {
+            onUi(() -> {
+                currentId = id;
+                playing = true;
+                prefs().edit().putString(KEY_LAST_ID, id).apply();
+            });
+        }
+
+        @JavascriptInterface
+        public void stopped() {
+            onUi(() -> {
+                currentId = null;
+                playing = false;
+            });
+        }
+
+        @JavascriptInterface
+        public void add() {
+            onUi(() -> {
+                if (!held) showAddDialog();
+            });
+        }
+
+        @JavascriptInterface
+        public void remove(int index) {
+            onUi(() -> {
+                if (!held && index >= remote.size() && index < lists.size()) confirmDelete(index);
+            });
+        }
+
+        @JavascriptInterface
+        public void episodes() {
+            onUi(MoviesPanel.this::showEpisodes);
+        }
+
+        @JavascriptInterface
+        public void close() {
+            onUi(MoviesPanel.this::close);
+        }
     }
 
-    // العودة إلى الصفحة الرئيسية وإيقاف التشغيل
-    private void goHome() {
-        playing = false;
-        currentId = null;
-        current = -1;
-        web.loadUrl("about:blank");
-        buildLayout();
-        adapter.notifyDataSetChanged();
-        listView.requestFocus();
-    }
-
-    // ---------- الواجهة ----------
+    // ---------- النوافذ المنبثقة ----------
 
     private int dp(int v) {
         return Math.round(v * activity.getResources().getDisplayMetrics().density);
-    }
-
-    private void setupAdapter() {
-        adapter = new BaseAdapter() {
-            @Override
-            public int getCount() {
-                return lists.size();
-            }
-
-            @Override
-            public Object getItem(int i) {
-                return lists.get(i);
-            }
-
-            @Override
-            public long getItemId(int i) {
-                return i;
-            }
-
-            @Override
-            public View getView(int i, View convert, ViewGroup parent) {
-                TextView t = (convert instanceof TextView) ? (TextView) convert : new TextView(activity);
-                t.setPadding(dp(16), dp(14), dp(16), dp(14));
-                t.setTextSize(18);
-                t.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-                boolean sel = i == current;
-                t.setText((sel ? "▶  " : "") + lists.get(i)[0]);
-                t.setTextColor(sel ? ACCENT : Color.WHITE);
-                t.setBackgroundColor(sel ? 0xFF262626 : Color.TRANSPARENT);
-                return t;
-            }
-        };
-    }
-
-    private void buildLayout() {
-        if (web.getParent() != null) ((ViewGroup) web.getParent()).removeView(web);
-        if (content != null) rootFrame.removeView(content);
-
-        content = new LinearLayout(activity);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setBackgroundColor(BG);
-        content.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-
-        playerHolder = new FrameLayout(activity);
-        playerHolder.setBackgroundColor(Color.BLACK);
-        playerHolder.addView(web, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
-        TextView toggle = new TextView(activity);
-        toggle.setText("☰");
-        toggle.setTextColor(Color.WHITE);
-        toggle.setTextSize(22);
-        toggle.setGravity(Gravity.CENTER);
-        toggle.setBackgroundColor(0x66000000);
-        toggle.setOnClickListener(v -> goHome());
-        playerHolder.addView(toggle, new FrameLayout.LayoutParams(
-                dp(44), dp(44), Gravity.LEFT | Gravity.CENTER_VERTICAL));
-
-        if (current >= 0 && "p".equals(lists.get(current)[2])) {
-            TextView episodes = new TextView(activity);
-            episodes.setText("الحلقات");
-            episodes.setTextColor(Color.WHITE);
-            episodes.setTextSize(18);
-            episodes.setPadding(dp(16), dp(8), dp(16), dp(8));
-            episodes.setBackgroundColor(0x99000000);
-            episodes.setOnClickListener(v -> showEpisodes());
-            FrameLayout.LayoutParams epLp = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                    Gravity.TOP | Gravity.LEFT);
-            epLp.setMargins(dp(12), dp(12), 0, 0);
-            playerHolder.addView(episodes, epLp);
-        }
-
-        LinearLayout side = new LinearLayout(activity);
-        side.setOrientation(LinearLayout.VERTICAL);
-
-        Button add = new Button(activity);
-        add.setText("+ إضافة رابط");
-        add.setTextColor(Color.BLACK);
-        add.setBackground(focusable(ACCENT));
-        add.setOnClickListener(v -> showAddDialog());
-        Button exit = new Button(activity);
-        exit.setText("✕ رجوع");
-        exit.setTextColor(Color.WHITE);
-        exit.setBackground(focusable(0xFF333333));
-        exit.setOnClickListener(v -> close());
-
-        TextView title = new TextView(activity);
-        title.setText("أفلام ومسلسلات");
-        title.setTextColor(ACCENT);
-        title.setTextSize(24);
-
-        LinearLayout header = new LinearLayout(activity);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(title, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        header.addView(add);
-        LinearLayout.LayoutParams exitLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        exitLp.setMarginStart(dp(12));
-        header.addView(exit, exitLp);
-        LinearLayout.LayoutParams headerLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        headerLp.setMargins(dp(16), dp(12), dp(16), dp(8));
-        side.addView(header, headerLp);
-
-        listView = new ListView(activity);
-        listView.setSelector(new ColorDrawable(0x66F5B301));
-        listView.setAdapter(adapter);
-        listView.setDivider(new ColorDrawable(0xFF2A2A2A));
-        listView.setDividerHeight(1);
-        listView.setOnItemClickListener((p, v, pos, id) -> play(pos));
-        listView.setOnItemLongClickListener((p, v, pos, id) -> {
-            if (pos >= remote.size()) confirmDelete(pos);
-            return true;
-        });
-        side.addView(listView, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
-        if (playing) {
-            content.addView(playerHolder, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        } else {
-            content.addView(side, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        }
-
-        rootFrame.addView(content, 0, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        if (customView != null) content.setVisibility(View.GONE);
-    }
-
-    /** خلفية زر بإطار أبيض عند التركيز عليه بالريموت. */
-    private StateListDrawable focusable(int color) {
-        GradientDrawable on = new GradientDrawable();
-        on.setColor(color);
-        on.setStroke(dp(3), Color.WHITE);
-        StateListDrawable d = new StateListDrawable();
-        d.addState(new int[]{android.R.attr.state_focused}, on);
-        d.addState(new int[]{}, new ColorDrawable(color));
-        return d;
     }
 
     private void showAddDialog() {
@@ -597,8 +447,7 @@ final class MoviesPanel {
                     user.add(new String[]{name, t[0], t[1]});
                     saveUser();
                     rebuild();
-                    adapter.notifyDataSetChanged();
-                    play(lists.size() - 1);
+                    sendLists();
                 })
                 .setNegativeButton("إلغاء", null)
                 .show();
@@ -611,15 +460,10 @@ final class MoviesPanel {
                 .setPositiveButton("حذف", (d, w) -> {
                     int userIndex = pos - remote.size();
                     if (userIndex < 0 || userIndex >= user.size()) return;
-                    boolean wasCurrent = pos == current;
                     user.remove(userIndex);
                     saveUser();
                     rebuild();
-                    if (wasCurrent) {
-                        currentId = null;
-                        current = -1;
-                    }
-                    adapter.notifyDataSetChanged();
+                    sendLists();
                 })
                 .setNegativeButton("إلغاء", null)
                 .show();
@@ -696,8 +540,7 @@ final class MoviesPanel {
 
     void focus() {
         if (customView != null) customView.requestFocus();
-        else if (playing) web.requestFocus();
-        else if (listView != null) listView.requestFocus();
+        else web.requestFocus();
     }
 
     // ---------- الريموت ----------
@@ -705,56 +548,43 @@ final class MoviesPanel {
     void back() {
         if (customView != null) {
             chrome.onHideCustomView();
-        } else if (playing) {
-            goHome();
-        } else {
-            close();
+            return;
         }
+        // الصفحة تخرج من ملء الشاشة أو توقف التشغيل، وإلا نغلقها
+        web.evaluateJavascript("window.onBack?onBack():false", value -> {
+            if (!"true".equals(value)) close();
+        });
     }
 
-    /** أثناء التشغيل: موافق = تشغيل/إيقاف، ◄► = تقديم وتأخير، ▲ أو القائمة = الحلقات، ▼ = التالي. */
+    /** تُمرَّر أزرار الريموت إلى الصفحة (onRemote). الضغط المطوّل على «موافق» يحذف رابطاً مضافاً. */
     boolean handleKey(KeyEvent e) {
-        if (!playing) return false;
-        if (e.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP || e.getKeyCode() == KeyEvent.KEYCODE_MENU) {
-            // عند رفع الزر، كي لا يصل الحدث إلى النافذة المنبثقة
-            if (e.getAction() == KeyEvent.ACTION_UP) showEpisodes();
-            return true;
-        }
-        final String code;
+        final String key;
         switch (e.getKeyCode()) {
+            case KeyEvent.KEYCODE_DPAD_UP: key = "up"; break;
+            case KeyEvent.KEYCODE_DPAD_DOWN: key = "down"; break;
+            case KeyEvent.KEYCODE_DPAD_LEFT: key = "left"; break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT: key = "right"; break;
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
-            case KeyEvent.KEYCODE_SPACE:
-            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-                code = "st()===1?player.pauseVideo():player.playVideo()";
-                break;
-            case KeyEvent.KEYCODE_MEDIA_PLAY:
-                code = "player.playVideo()";
-                break;
-            case KeyEvent.KEYCODE_MEDIA_PAUSE:
-                code = "player.pauseVideo()";
-                break;
-            case KeyEvent.KEYCODE_DPAD_LEFT:
-            case KeyEvent.KEYCODE_MEDIA_REWIND:
-                code = "player.seekTo(Math.max(0,player.getCurrentTime()-10),true)";
-                break;
-            case KeyEvent.KEYCODE_DPAD_RIGHT:
-            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
-                code = "player.seekTo(player.getCurrentTime()+10,true)";
-                break;
-            case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
-                code = "player.previousVideo()";
-                break;
-            case KeyEvent.KEYCODE_DPAD_DOWN:
-            case KeyEvent.KEYCODE_MEDIA_NEXT:
-                code = "player.nextVideo()";
-                break;
-            default:
-                return false;
+            case KeyEvent.KEYCODE_SPACE: key = "ok"; break;
+            case KeyEvent.KEYCODE_MENU: key = "menu"; break;
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: key = "playpause"; break;
+            case KeyEvent.KEYCODE_MEDIA_PLAY: key = "play"; break;
+            case KeyEvent.KEYCODE_MEDIA_PAUSE: key = "pause"; break;
+            case KeyEvent.KEYCODE_MEDIA_REWIND: key = "rewind"; break;
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD: key = "forward"; break;
+            case KeyEvent.KEYCODE_MEDIA_PREVIOUS: key = "prevTrack"; break;
+            case KeyEvent.KEYCODE_MEDIA_NEXT: key = "nextTrack"; break;
+            default: return false;
         }
-        if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
-            web.evaluateJavascript("if(window.player&&ready){" + code + ";}", null);
+        if (customView != null) return false;   // ملء شاشة يوتيوب يتعامل مع الأزرار بنفسه
+        boolean arrow = "up".equals(key) || "down".equals(key)
+                || "left".equals(key) || "right".equals(key);
+        // الأسهم عند الضغط (وتتكرر)، والبقية عند رفع الزر كي لا يصل الحدث إلى نافذة منبثقة
+        if (arrow ? e.getAction() == KeyEvent.ACTION_DOWN : e.getAction() == KeyEvent.ACTION_UP) {
+            boolean longOk = "ok".equals(key) && e.getEventTime() - e.getDownTime() > 700;
+            web.evaluateJavascript("window.onRemote&&onRemote('" + (longOk ? "hold" : key) + "');", null);
         }
         return true;
     }

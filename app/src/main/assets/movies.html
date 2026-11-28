@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>أفلام ومسلسلات</title>
+<style>
+  /* بلا grid ولا aspect-ratio: يجب أن تعمل الصفحة على WebView القديم (أندرويد 5) */
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f1720;color:#eef3f8;font-family:sans-serif}
+  main{max-width:960px;margin:0 auto;padding:12px}
+  header{overflow:hidden;margin-bottom:8px}
+  h1{float:right;font-size:22px;margin:8px 0}
+  header button{float:left;margin-right:8px}
+  button{font:inherit;font-size:17px;color:#eef3f8;background:#1d2b3a;border:3px solid #1d2b3a;border-radius:10px;padding:10px 14px;cursor:pointer;outline:none}
+  button.current{border-color:#f5b301;color:#f5b301}
+  .f.sel{border-color:#6cc4ff!important}
+  #viewer{display:none}
+  #stage{position:relative;height:200px;background:#000;border:3px solid #000;overflow:hidden}
+  #stage iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+  #msg{display:none;position:absolute;left:8%;right:8%;top:30%;z-index:2;padding:16px;border-radius:12px;background:#000;text-align:center;line-height:1.8;pointer-events:none}
+  #controls{margin:8px 0}
+  #controls button{margin:0 0 6px 6px}
+  #exitFull{display:none;position:fixed;top:10px;left:10px;z-index:6;opacity:.7}
+  body.full{overflow:hidden}
+  body.full #stage{position:fixed;top:0;left:0;right:0;bottom:0;height:auto!important;z-index:5;border:0}
+  body.full #exitFull{display:block}
+  #status{min-height:24px;margin:8px 0}
+  #list{margin:0 -4px;font-size:0}
+  #list button{display:inline-block;vertical-align:top;width:48%;margin:1%;min-height:56px;overflow:hidden}
+  @media(min-width:600px){#list button{width:31.33%}}
+  @media(min-width:900px){#list button{width:23%}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>أفلام ومسلسلات</h1>
+    <button class="f" id="close">✕ رجوع</button>
+    <button class="f" id="add">+ إضافة رابط</button>
+  </header>
+  <div id="viewer">
+    <div id="stage" class="f"><div id="player"></div><div id="msg"></div></div>
+    <div id="controls">
+      <button class="f" id="prev">السابق</button>
+      <button class="f" id="next">التالي</button>
+      <button class="f" id="episodes">الحلقات</button>
+      <button class="f" id="full">ملء الشاشة</button>
+    </div>
+  </div>
+  <button id="exitFull">✕</button>
+  <div id="status">جارٍ تحميل القائمة…</div>
+  <div id="list"></div>
+</main>
+<script>
+"use strict";
+var ORIGIN = "https://com.loai.azanhome";
+var lists = [], selected = null, sel = null;
+var player = null, ready = false, hold = false, again = false, errs = 0, played = false, timer = 0;
+
+function $(id) { return document.getElementById(id); }
+function app(name, arg) {
+  if (!window.Movies) return;
+  if (arg === undefined) window.Movies[name](); else window.Movies[name](arg);
+}
+function msg(text) {
+  var version = (navigator.userAgent.match(/Chrome\/(\d+)/) || [0, "غير معروف"])[1];
+  $("msg").innerHTML = text ? text + "<br>إصدار WebView في هذه الشاشة: " + version : "";
+  $("msg").style.display = text ? "block" : "none";
+}
+
+/* ---------- القائمة (يرسلها التطبيق) ---------- */
+function setLists(data) {
+  var box = $("list"), focused = sel && sel.parentNode === box ? sel.getAttribute("data-id") : null;
+  lists = data;
+  box.innerHTML = "";
+  sel = sel && sel.parentNode ? sel : null;
+  data.forEach(function (entry, index) {
+    var b = document.createElement("button");
+    b.className = "f";
+    b.textContent = entry.name;
+    b.setAttribute("data-id", entry.id);
+    b.onclick = function () { open(entry); };
+    b.oncontextmenu = function (e) { e.preventDefault(); if (entry.user) app("remove", index); };
+    box.appendChild(b);
+    if (entry.id === focused) select(b);
+  });
+  mark();
+  $("status").textContent = selected ? selected.name : (data.length ? "اختر مسلسلاً أو فيلماً" : "القائمة فارغة");
+  if (!sel && data.length) select(box.firstChild);
+}
+function mark() {
+  [].forEach.call($("list").children, function (b) {
+    var on = selected && b.getAttribute("data-id") === selected.id;
+    b.className = "f" + (on ? " current" : "") + (b === sel ? " sel" : "");
+  });
+}
+
+/* ---------- التشغيل ---------- */
+function open(entry) {
+  selected = entry;
+  errs = 0; played = false; msg("");
+  $("viewer").style.display = "block";
+  $("prev").style.display = $("next").style.display = $("episodes").style.display =
+    entry.type === "v" ? "none" : "";
+  $("status").textContent = entry.name;
+  mark();
+  fit();
+  select($("stage"));
+  window.scrollTo(0, 0);
+  app("selected", entry.id);
+  clearTimeout(timer);
+  timer = setTimeout(function () {
+    if (!played && !hold && selected) msg(ready ? "لم يبدأ الفيديو" : "لم يتحمّل مشغّل يوتيوب");
+  }, 30000);
+  if (ready) start(); else loadApi();
+}
+function start() {
+  if (!selected) return;
+  if (selected.type === "v") player.loadVideoById(selected.id);
+  else player.loadPlaylist({ list: selected.id, listType: "playlist" });
+  if (hold) player.pauseVideo();
+}
+function loadApi() {
+  if (window.YT && window.YT.Player) { createPlayer(); return; }
+  if ($("api")) return;
+  var s = document.createElement("script");
+  s.id = "api";
+  s.src = "https://www.youtube.com/iframe_api";
+  s.onerror = function () { s.parentNode.removeChild(s); msg("لم يتحمّل مشغّل يوتيوب، اختر الاسم مرة أخرى"); };
+  document.head.appendChild(s);
+}
+function onYouTubeIframeAPIReady() { createPlayer(); }
+function createPlayer() {
+  if (player) return;
+  player = new YT.Player("player", {
+    width: "100%", height: "100%",
+    playerVars: { autoplay: 1, playsinline: 1, rel: 0, enablejsapi: 1, origin: ORIGIN, widget_referrer: ORIGIN },
+    events: {
+      onReady: function () { ready = true; start(); },
+      onStateChange: function (e) {
+        if (hold) { if (e.data === 1 || e.data === 3) halt(); return; }
+        if (e.data === 1) {
+          errs = 0; played = true; msg("");
+          if (selected && selected.type !== "v") player.setLoop(true);
+        }
+        if (e.data === 0 && selected && selected.type === "v") { player.seekTo(0); player.playVideo(); }
+      },
+      onError: function (e) {
+        if (hold) return;
+        msg("خطأ يوتيوب رقم " + e.data);
+        errs++;
+        if (selected && selected.type !== "v" && errs < 60) player.nextVideo();
+      }
+    }
+  });
+}
+function stop() {
+  selected = null;
+  clearTimeout(timer);
+  setFull(false);
+  msg("");
+  if (ready) player.stopVideo();
+  $("viewer").style.display = "none";
+  $("status").textContent = "اختر مسلسلاً أو فيلماً";
+  mark();
+  app("stopped");
+}
+function fit() {
+  var w = $("stage").offsetWidth;
+  if (w) $("stage").style.height = Math.round(Math.min(w * 9 / 16, window.innerHeight * 0.65)) + "px";
+}
+window.addEventListener("resize", fit);
+function setFull(on) {
+  document.body.className = on ? "full" : "";
+  if (on) select($("stage"));
+}
+
+/* ---------- الأذان ---------- */
+function st() { return ready ? player.getPlayerState() : -1; }
+function halt() { if (ready) player.pauseVideo(); }
+function adhanHold() {
+  if (hold) return;
+  hold = true;
+  again = selected !== null && st() !== 2;
+  halt();
+}
+function adhanRelease() {
+  if (!hold) return;
+  hold = false;
+  if (again && ready) player.playVideo();
+}
+setInterval(function () { var s = st(); if (hold && (s === 1 || s === 3)) halt(); }, 400);
+
+/* ---------- الريموت ---------- */
+function select(el) {
+  if (sel) sel.classList.remove("sel");
+  sel = el;
+  if (!el) return;
+  el.classList.add("sel");
+  var r = el.getBoundingClientRect();
+  if (r.top < 0) window.scrollBy(0, r.top - 12);
+  else if (r.bottom > window.innerHeight) window.scrollBy(0, r.bottom - window.innerHeight + 12);
+}
+function move(dir) {
+  var all = [].filter.call(document.querySelectorAll(".f"), function (e) { return e.offsetWidth > 0; });
+  if (!sel || all.indexOf(sel) < 0) { select(all[0]); return; }
+  var a = sel.getBoundingClientRect(), best = null, bestScore = Infinity;
+  all.forEach(function (e) {
+    if (e === sel) return;
+    var b = e.getBoundingClientRect();
+    var dx = (b.left + b.right - a.left - a.right) / 2, score;
+    if (dir === "left" || dir === "right") {
+      var sameRow = b.top < a.bottom && b.bottom > a.top;
+      if (!sameRow || (dir === "left" ? dx >= 0 : dx <= 0)) return;
+      score = Math.abs(dx);
+    } else {
+      var gap = dir === "down" ? b.top - a.bottom : a.top - b.bottom;
+      if (gap < -4) return;
+      score = Math.max(gap, 0) * 1000 + Math.abs(dx);
+    }
+    if (score < bestScore) { best = e; bestScore = score; }
+  });
+  if (best) select(best);
+}
+function seek(delta) { if (ready) player.seekTo(Math.max(0, player.getCurrentTime() + delta), true); }
+function toggle() { if (ready) { if (st() === 1) player.pauseVideo(); else player.playVideo(); } }
+function skip(next) {
+  if (!ready || !selected || selected.type === "v") return;
+  errs = 0;
+  if (next) player.nextVideo(); else player.previousVideo();
+}
+function onRemote(key) {
+  if (hold) return;
+  var full = document.body.className === "full";
+  if (key === "play") { if (ready) player.playVideo(); }
+  else if (key === "pause") halt();
+  else if (key === "playpause") toggle();
+  else if (key === "rewind") seek(-10);
+  else if (key === "forward") seek(10);
+  else if (key === "prevTrack") skip(false);
+  else if (key === "nextTrack") skip(true);
+  else if (key === "menu") { if (selected && selected.type !== "v") app("episodes"); }
+  else if (full || (sel === $("stage") && (key === "left" || key === "right" || key === "ok"))) {
+    if (key === "ok") toggle();
+    else if (key === "left") seek(-10);
+    else if (key === "right") seek(10);
+    else if (key === "up") onRemote("menu");
+    else if (key === "down") skip(true);
+  } else if (key === "ok") { if (sel) sel.onclick(); }
+  else if (key === "hold") { if (sel && sel.oncontextmenu) sel.oncontextmenu({ preventDefault: function () {} }); else if (sel) sel.onclick(); }
+  else move(key);
+}
+/* يعيد false عندما يجب أن يغلق التطبيق الصفحة */
+function onBack() {
+  if (document.body.className === "full") { setFull(false); select($("full")); return true; }
+  if (selected) {
+    var id = selected.id;
+    stop();
+    [].forEach.call($("list").children, function (b) { if (b.getAttribute("data-id") === id) select(b); });
+    return true;
+  }
+  return false;
+}
+
+$("close").onclick = function () { app("close"); };
+$("add").onclick = function () { app("add"); };
+$("prev").onclick = function () { skip(false); };
+$("next").onclick = function () { skip(true); };
+$("episodes").onclick = function () { app("episodes"); };
+$("full").onclick = function () { setFull(true); };
+$("stage").onclick = function () { toggle(); };
+$("exitFull").onclick = function () { onBack(); };
+app("ready");
+</script>
+</body>
+</html>
