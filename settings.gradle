@@ -10,6 +10,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // مكتبة NewPipeExtractor (استخراج روابط البث) تأتي من JitPack
+        maven {
+            url 'https://jitpack.io'
+            content { includeGroupByRegex 'com\\.github\\..*' }
+        }
     }
 }
 rootProject.name = "AzanHome"

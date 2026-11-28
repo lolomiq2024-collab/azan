@@ -43,6 +43,8 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+        // NewPipeExtractor تحتاج Java 11+ (java.time وغيرها) على أندرويد 5 فما فوق
+        coreLibraryDesugaringEnabled true
     }
 
     // لا تضغط ملفات الفيديو/الصوت داخل الـ APK كي تعمل من assets
@@ -58,4 +60,8 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer-dash:1.3.1'
     implementation 'androidx.media3:media3-datasource:1.3.1'
     implementation 'androidx.media3:media3-datasource-okhttp:1.3.1'
+
+    // استخراج روابط البث المباشر لفيديوهات وقوائم يوتيوب (أفلام ومسلسلات) للمشغّل الأصلي
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.4'
 }

@@ -12,12 +12,6 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.RenderProcessGoneDetail;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -39,7 +33,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * أفلام ومسلسلات: قوائم يوتيوب تُعرض فوق الصفحة بملء الشاشة داخل MainActivity.
+ * أفلام ومسلسلات: قوائم يوتيوب تُعرض فوق الصفحة بملء الشاشة داخل MainActivity وتُشغَّل بمشغّل أصلي (NativeQueuePlayer) دون WebView.
  * عند الأذان تُخفى اللوحة ويتوقف الفيديو (hold)، وبعد انتهائه تعود ويكمل من مكانه (release).
  */
 final class MoviesPanel {
@@ -53,9 +47,6 @@ final class MoviesPanel {
     private static final String[][] DEFAULTS = {
             {"مايا النحلة", "PL6qk-0ihmmB4O53zIbVntvbJIy_qgtbJk", "p"}
     };
-
-    // هوية التضمين: معرّف حزمة التطبيق (يطلبها يوتيوب لتجنّب الخطأ 152/153)
-    private static final String ORIGIN = "https://com.loai.azanhome";
 
     private static final String PREFS = "yt_playlists";
     private static final String KEY_USER = "user_lists";
@@ -92,12 +83,8 @@ final class MoviesPanel {
     private final FrameLayout rootFrame;
     private LinearLayout content;
     private FrameLayout playerHolder;
-    private WebView web;
+    private NativeQueuePlayer qp;     // مشغّل أصلي بلا WebView
     private BaseAdapter adapter;
-
-    private WebChromeClient chrome;
-    private View customView;
-    private WebChromeClient.CustomViewCallback customCallback;
 
     MoviesPanel(Activity activity, Runnable onClose) {
         this.activity = activity;
@@ -105,7 +92,7 @@ final class MoviesPanel {
 
         loadLists();
         setupAdapter();
-        setupWebView();
+        qp = new NativeQueuePlayer(activity);
 
         rootFrame = new FrameLayout(activity);
         rootFrame.setBackgroundColor(BG);
@@ -283,112 +270,6 @@ final class MoviesPanel {
 
     // ---------- المشغّل ----------
 
-    private void setupWebView() {
-        web = new WebView(activity);
-        web.setBackgroundColor(Color.BLACK);
-        WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setMediaPlaybackRequiresUserGesture(false);
-        s.setLoadWithOverviewMode(true);
-        s.setUseWideViewPort(true);
-
-        web.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return true; // لا نسمح بالخروج من المشغّل المضمّن
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                if (held) view.evaluateJavascript("window.adhanHold&&adhanHold();", null);
-            }
-
-            @Override
-            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-                close();   // انهيار عملية العرض: نغلق اللوحة ويبقى التطبيق يعمل
-                return true;
-            }
-        });
-
-        chrome = new WebChromeClient() {
-            @Override
-            public void onShowCustomView(View view, CustomViewCallback callback) {
-                if (customView != null) {
-                    callback.onCustomViewHidden();
-                    return;
-                }
-                customView = view;
-                customCallback = callback;
-                rootFrame.addView(view, new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                content.setVisibility(View.GONE);
-            }
-
-            @Override
-            public void onHideCustomView() {
-                if (customView == null) return;
-                rootFrame.removeView(customView);
-                customView = null;
-                content.setVisibility(View.VISIBLE);
-                if (customCallback != null) {
-                    customCallback.onCustomViewHidden();
-                    customCallback = null;
-                }
-            }
-        };
-        web.setWebChromeClient(chrome);
-    }
-
-    // type: p = قائمة تشغيل ، v = فيديو مفرد (يعاد تشغيله تلقائياً عند انتهائه)
-    private static String playerHtml(String id, String type) {
-        boolean video = "v".equals(type);
-        String src = video ? "videoId:'" + id + "'," : "";
-        String vars = video
-                ? "loop:1,playlist:'" + id + "',"
-                : "listType:'playlist',list:'" + id + "',loop:1,";
-        return "<!DOCTYPE html><html><head>"
-                + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                + "<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;position:relative}"
-                + "#p{width:100%;height:100%}"
-                + "#m{display:none;position:absolute;left:8%;right:8%;top:30%;z-index:9;padding:18px;"
-                + "border-radius:12px;background:rgba(0,0,0,.85);color:#fff;font:20px/1.8 sans-serif;"
-                + "text-align:center;direction:rtl;pointer-events:none}"
-                + "</style></head><body><div id=\"p\"></div><div id=\"m\"></div>"
-                + "<script src=\"https://www.youtube.com/iframe_api\"></script>"
-                + "<script>"
-                + "var player,ready=false,errs=0,hold=false,again=false,played=false;"
-                // إن لم يعمل الفيديو نُظهر السبب وإصدار WebView (القديم لا يشغّل يوتيوب)
-                + "var ver=(navigator.userAgent.match(/Chrome\\/(\\d+)/)||[0,'غير معروف'])[1];"
-                + "function msg(t){var d=document.getElementById('m');"
-                + "d.innerHTML=t?t+'<br>إصدار WebView في هذه الشاشة: '+ver:'';d.style.display=t?'block':'none';}"
-                + "setTimeout(function(){if(!played&&!hold)msg(ready?'لم يبدأ الفيديو':'لم يتحمّل مشغّل يوتيوب');},30000);"
-                // الأذان: إيقاف مؤقت ثم إكمال (لا يُستأنف ما أوقفه المستخدم بنفسه)
-                + "function st(){try{return ready?player.getPlayerState():-1;}catch(x){return -1;}}"
-                + "function halt(){try{if(ready)player.pauseVideo();}catch(x){}}"
-                + "function adhanHold(){if(hold)return;hold=true;again=st()!==2;halt();}"
-                + "function adhanRelease(){if(!hold)return;hold=false;"
-                + "if(again){try{if(ready)player.playVideo();}catch(x){}}}"
-                + "setInterval(function(){var s=st();if(hold&&(s===1||s===3))halt();},400);"
-                // إطار المشغّل بمقاس الشاشة تماماً: يوتيوب يحافظ على أبعاد الفيديو دون قص أو تمطيط
-                + "function fit(){var f=document.querySelector('iframe');if(!f)return;"
-                + "f.style.position='absolute';f.style.left='0';f.style.top='0';"
-                + "f.style.width='100%';f.style.height='100%';}"
-                + "window.addEventListener('resize',fit);"
-                + "function onYouTubeIframeAPIReady(){"
-                + "player=new YT.Player('p',{width:'100%',height:'100%'," + src
-                + "playerVars:{" + vars + "autoplay:1,playsinline:1,rel:0,enablejsapi:1,"
-                + "origin:'" + ORIGIN + "',widget_referrer:'" + ORIGIN + "'},"
-                + "events:{"
-                + "onReady:function(e){ready=true;fit();if(!hold)e.target.playVideo();setTimeout(fit,500);},"
-                + "onStateChange:function(e){fit();if(hold){if(e.data===1||e.data===3)halt();return;}if(e.data===1){errs=0;played=true;msg('');}"
-                + (video ? "if(e.data===0){try{player.seekTo(0);player.playVideo();}catch(x){}}" : "")
-                + "},"
-                + "onError:function(e){if(hold)return;msg('خطأ يوتيوب رقم '+e.data);errs++;if(errs<60){try{player.nextVideo();}catch(x){}}}"
-                + "}});}"
-                + "</script></body></html>";
-    }
-
     private void play(int index) {
         if (index < 0 || index >= lists.size()) return;
         String[] item = lists.get(index);
@@ -398,16 +279,15 @@ final class MoviesPanel {
         adapter.notifyDataSetChanged();
         playing = true;
         buildLayout();
-        web.requestFocus();
-        web.loadDataWithBaseURL(ORIGIN, playerHtml(item[1], item[2]), "text/html", "utf-8", null);
+        qp.start(item[1], item[2]);
     }
 
-    // العودة إلى الصفحة الرئيسية وإيقاف التشغيل
+    // العودة إلى قائمة القوائم وإيقاف التشغيل
     private void goHome() {
         playing = false;
         currentId = null;
         current = -1;
-        web.loadUrl("about:blank");
+        qp.stop();
         buildLayout();
         adapter.notifyDataSetChanged();
         listView.requestFocus();
@@ -452,7 +332,7 @@ final class MoviesPanel {
     }
 
     private void buildLayout() {
-        if (web.getParent() != null) ((ViewGroup) web.getParent()).removeView(web);
+        if (qp.view().getParent() != null) ((ViewGroup) qp.view().getParent()).removeView(qp.view());
         if (content != null) rootFrame.removeView(content);
 
         content = new LinearLayout(activity);
@@ -462,7 +342,7 @@ final class MoviesPanel {
 
         playerHolder = new FrameLayout(activity);
         playerHolder.setBackgroundColor(Color.BLACK);
-        playerHolder.addView(web, new FrameLayout.LayoutParams(
+        playerHolder.addView(qp.view(), new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         TextView toggle = new TextView(activity);
@@ -546,7 +426,6 @@ final class MoviesPanel {
 
         rootFrame.addView(content, 0, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        if (customView != null) content.setVisibility(View.GONE);
     }
 
     /** خلفية زر بإطار أبيض عند التركيز عليه بالريموت. */
@@ -627,39 +506,23 @@ final class MoviesPanel {
 
     // ---------- اختيار الحلقة ----------
 
-    /** يسأل المشغّل عن عدد فيديوهات القائمة ورقم الحالي، ثم يعرضها للاختيار. */
     void showEpisodes() {
         if (!playing || held || destroyed) return;
-        final String id = currentId;
-        web.evaluateJavascript("(function(){if(!window.player||!ready)return null;"
-                + "var l=player.getPlaylist();return [l?l.length:0,player.getPlaylistIndex()];})()", value -> {
-            // ربما بدأ الأذان أو خرج المستخدم قبل وصول الرد
-            if (!playing || held || destroyed || id == null || !id.equals(currentId)) return;
-            if (dialog != null && dialog.isShowing()) return;
-            int count = 0;
-            int index = 0;
-            try {
-                JSONArray a = new JSONArray(value);
-                count = a.getInt(0);
-                index = a.optInt(1, 0);
-            } catch (Exception ignored) {
-            }
-            if (count < 2) {
-                Toast.makeText(activity, "قائمة الحلقات غير متاحة الآن", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            String[] names = new String[count];
-            for (int i = 0; i < count; i++) names[i] = "الحلقة " + (i + 1);
-            dialog = new AlertDialog.Builder(activity)
-                    .setTitle("اختر الحلقة")
-                    .setSingleChoiceItems(names, Math.max(0, Math.min(index, count - 1)), (d, which) -> {
-                        d.dismiss();
-                        web.evaluateJavascript("errs=0;player.playVideoAt(" + which + ");", null);
-                        web.requestFocus();
-                    })
-                    .setNegativeButton("إلغاء", null)
-                    .show();
-        });
+        if (dialog != null && dialog.isShowing()) return;
+        final int count = qp.count();
+        if (count < 2) {
+            Toast.makeText(activity, "قائمة الحلقات غير متاحة الآن", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        dialog = new AlertDialog.Builder(activity)
+                .setTitle("اختر الحلقة")
+                .setSingleChoiceItems(qp.titles(),
+                        Math.max(0, Math.min(qp.currentIndex(), count - 1)), (d, which) -> {
+                            d.dismiss();
+                            qp.playAt(which);
+                        })
+                .setNegativeButton("إلغاء", null)
+                .show();
     }
 
     // ---------- الأذان ----------
@@ -673,11 +536,7 @@ final class MoviesPanel {
             dialog = null;
         }
         rootFrame.setVisibility(View.GONE);
-        final WebView w = web;
-        // نوقف عبر المشغّل أولاً (كي يعرف هل كان يعمل) ثم نجمّد الـ WebView احتياطاً
-        w.evaluateJavascript("window.adhanHold&&adhanHold();", value -> {
-            if (held && !destroyed) w.onPause();
-        });
+        qp.hold();
     }
 
     /** انتهاء الأذان: تعود اللوحة ويكمل الفيديو من حيث توقف. */
@@ -685,8 +544,7 @@ final class MoviesPanel {
         if (!held || destroyed) return;
         held = false;
         rootFrame.setVisibility(View.VISIBLE);
-        web.onResume();
-        web.evaluateJavascript("window.adhanRelease&&adhanRelease();", null);
+        qp.release();
         focus();
     }
 
@@ -695,79 +553,72 @@ final class MoviesPanel {
     }
 
     void focus() {
-        if (customView != null) customView.requestFocus();
-        else if (playing) web.requestFocus();
-        else if (listView != null) listView.requestFocus();
+        if (!playing && listView != null) listView.requestFocus();
     }
 
     // ---------- الريموت ----------
 
     void back() {
-        if (customView != null) {
-            chrome.onHideCustomView();
-        } else if (playing) {
+        if (playing) {
             goHome();
         } else {
             close();
         }
     }
 
-    /** أثناء التشغيل: موافق = تشغيل/إيقاف، ◄► = تقديم وتأخير، ▲ أو القائمة = الحلقات، ▼ = التالي. */
+    /** أثناء التشغيل: موافق = تشغيل/إيقاف، ◄► = تقديم وتأخير، ▲ أو القائمة = الحلقات، ▼ = التالية. */
     boolean handleKey(KeyEvent e) {
         if (!playing) return false;
-        if (e.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP || e.getKeyCode() == KeyEvent.KEYCODE_MENU) {
+        int k = e.getKeyCode();
+        if (k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_MENU) {
             // عند رفع الزر، كي لا يصل الحدث إلى النافذة المنبثقة
             if (e.getAction() == KeyEvent.ACTION_UP) showEpisodes();
             return true;
         }
-        final String code;
-        switch (e.getKeyCode()) {
+        boolean down = e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0;
+        switch (k) {
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
             case KeyEvent.KEYCODE_SPACE:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-                code = "st()===1?player.pauseVideo():player.playVideo()";
-                break;
+                if (down) qp.togglePlay();
+                return true;
             case KeyEvent.KEYCODE_MEDIA_PLAY:
-                code = "player.playVideo()";
-                break;
+                if (down) qp.play();
+                return true;
             case KeyEvent.KEYCODE_MEDIA_PAUSE:
-                code = "player.pauseVideo()";
-                break;
+                if (down) qp.pause();
+                return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_MEDIA_REWIND:
-                code = "player.seekTo(Math.max(0,player.getCurrentTime()-10),true)";
-                break;
+                if (e.getAction() == KeyEvent.ACTION_DOWN) qp.seekBy(-1);
+                return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
-                code = "player.seekTo(player.getCurrentTime()+10,true)";
-                break;
+                if (e.getAction() == KeyEvent.ACTION_DOWN) qp.seekBy(1);
+                return true;
             case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
-                code = "player.previousVideo()";
-                break;
+                if (down) qp.previous();
+                return true;
             case KeyEvent.KEYCODE_DPAD_DOWN:
             case KeyEvent.KEYCODE_MEDIA_NEXT:
-                code = "player.nextVideo()";
-                break;
+                if (down) qp.next();
+                return true;
             default:
                 return false;
         }
-        if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
-            web.evaluateJavascript("if(window.player&&ready){" + code + ";}", null);
-        }
-        return true;
     }
 
     // ---------- دورة الحياة ----------
 
     void onPause() {
-        if (!destroyed) web.onPause();
+        if (!destroyed) qp.onPause();
     }
 
     void onResume() {
         if (destroyed) return;
-        if (!held) web.onResume();
+        qp.onResume();
         if (System.currentTimeMillis() - lastFetch > REFRESH_INTERVAL_MS) fetchRemote();
     }
 
@@ -781,7 +632,7 @@ final class MoviesPanel {
         if (destroyed) return;
         destroyed = true;
         if (dialog != null) dialog.dismiss();
-        if (web.getParent() != null) ((ViewGroup) web.getParent()).removeView(web);
-        web.destroy();
+        if (qp.view().getParent() != null) ((ViewGroup) qp.view().getParent()).removeView(qp.view());
+        qp.destroy();
     }
 }
