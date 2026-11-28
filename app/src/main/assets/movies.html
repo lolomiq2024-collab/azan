@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>أفلام ومسلسلات</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f1720;color:#eef3f8;font-family:system-ui,sans-serif}
+  main{max-width:960px;margin:auto;padding:16px}
+  h1{font-size:1.4rem;margin:0 0 12px}
+  button{font:inherit;color:inherit;background:#1d2b3a;border:2px solid transparent;border-radius:10px;padding:12px;cursor:pointer}
+  button:focus-visible{outline:3px solid #6cc4ff}
+  button[aria-current="true"]{border-color:#6cc4ff}
+  #stage{position:relative;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}
+  #stage iframe{width:100%;height:100%;border:0}
+  #adhan{position:absolute;inset:0;display:grid;place-items:center;background:#000d;font-size:1.5rem}
+  [hidden]{display:none!important}
+  #controls{display:flex;gap:8px;margin:10px 0}
+  #status{min-height:1.5em;margin:8px 0}
+  #list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+</style>
+</head>
+<body>
+<main>
+  <h1>أفلام ومسلسلات</h1>
+  <section id="viewer" hidden>
+    <div id="stage"><div id="player"></div><div id="adhan" hidden>متوقف أثناء الأذان</div></div>
+    <div id="controls">
+      <button id="prev">السابق</button>
+      <button id="next">التالي</button>
+    </div>
+  </section>
+  <p id="status" role="status">جارٍ تحميل القائمة…</p>
+  <button id="retry" hidden>إعادة المحاولة</button>
+  <div id="list"></div>
+</main>
+<script>
+"use strict";
+const CATALOG_URL = "https://raw.githubusercontent.com/lolomiq2024-collab/yt-playlists/main/playlists.json";
+const $ = (id) => document.getElementById(id);
+let player, ready = false, selected = null, interrupted = false, resumeAfter = false;
+
+const say = (text) => { $("status").textContent = text; };
+
+function toEntry(raw) {
+  if (!raw || typeof raw.name !== "string" || !raw.name.trim()) return null;
+  if (typeof raw.id === "string" && /^[\w-]+$/.test(raw.id)) return { name: raw.name, list: raw.id };
+  if (typeof raw.video === "string" && /^[\w-]{11}$/.test(raw.video)) return { name: raw.name, video: raw.video };
+  return null;
+}
+
+async function loadCatalog() {
+  $("retry").hidden = true;
+  say("جارٍ تحميل القائمة…");
+  try {
+    const response = await fetch(CATALOG_URL, { cache: "no-cache" });
+    if (!response.ok) throw new Error(response.status);
+    const entries = (await response.json()).playlists.map(toEntry).filter(Boolean);
+    $("list").replaceChildren(...entries.map((entry) => {
+      const button = document.createElement("button");
+      button.textContent = entry.name;
+      button.onclick = () => open(entry, button);
+      return button;
+    }));
+    say(entries.length ? "اختر مسلسلاً أو فيلماً" : "القائمة فارغة");
+  } catch {
+    say("تعذر تحميل القائمة. تحقق من الاتصال.");
+    $("retry").hidden = false;
+  }
+}
+
+function open(entry, button) {
+  selected = entry;
+  for (const item of $("list").children) item.removeAttribute("aria-current");
+  button.setAttribute("aria-current", "true");
+  $("viewer").hidden = false;
+  $("prev").hidden = $("next").hidden = !entry.list;
+  say(entry.name);
+  if (interrupted) resumeAfter = true;
+  if (ready) start();
+  else loadPlayer();
+  scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// أثناء الأذان نجهّز الاختيار دون تشغيله.
+function start() {
+  if (selected.list) {
+    const options = { list: selected.list, listType: "playlist" };
+    interrupted ? player.cuePlaylist(options) : player.loadPlaylist(options);
+  } else {
+    interrupted ? player.cueVideoById(selected.video) : player.loadVideoById(selected.video);
+  }
+}
+
+function loadPlayer() {
+  if (window.YT?.Player) return createPlayer();
+  if ($("api")) return;
+  const script = document.createElement("script");
+  script.id = "api";
+  script.src = "https://www.youtube.com/iframe_api";
+  script.onerror = () => { script.remove(); say("تعذر تحميل مشغّل يوتيوب. اضغط على الاسم للمحاولة."); };
+  document.head.append(script);
+}
+
+window.onYouTubeIframeAPIReady = createPlayer;
+
+function createPlayer() {
+  if (player) return;
+  player = new YT.Player("player", {
+    playerVars: { playsinline: 1, rel: 0 },
+    events: {
+      onReady: () => { ready = true; start(); },
+      onStateChange: ({ data }) => {
+        if (interrupted && data === YT.PlayerState.PLAYING) {
+          resumeAfter = true;
+          player.pauseVideo();
+        }
+      },
+      onError: () => say("تعذر تشغيل هذا الفيديو. جرّب «التالي» أو اختر غيره."),
+    },
+  });
+}
+
+// يستدعيهما تطبيق الأذان.
+window.adhanStart = () => {
+  if (interrupted) return;
+  interrupted = true;
+  $("adhan").hidden = false;
+  if (!ready) { resumeAfter = selected !== null; return; }
+  const state = player.getPlayerState();
+  resumeAfter = state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING;
+  player.pauseVideo();
+};
+
+window.adhanEnd = () => {
+  if (!interrupted) return;
+  interrupted = false;
+  $("adhan").hidden = true;
+  if (ready && resumeAfter) player.playVideo();
+  resumeAfter = false;
+};
+
+$("prev").onclick = () => ready && !interrupted && player.previousVideo();
+$("next").onclick = () => ready && !interrupted && player.nextVideo();
+$("retry").onclick = loadCatalog;
+loadCatalog();
+</script>
+</body>
+</html>

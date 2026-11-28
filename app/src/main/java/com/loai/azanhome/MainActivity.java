@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
     private static final String START_URL = "file:///android_asset/index.html";
     private WebView web;
     private FrameLayout root;
-    private MoviesPanel movies;     // أفلام ومسلسلات (يوتيوب)، فوق الصفحة
+    private MoviesPage movies;      // أفلام ومسلسلات (يوتيوب)، فوق الصفحة
     private boolean adhanActive = false;
     private static final int REQ_PLAYER = 10;
     private static final int REQ_HOME_ROLE = 11;
@@ -274,7 +274,7 @@ public class MainActivity extends Activity {
 
     private void showMovies() {
         if (movies != null || adhanActive || web == null) return;
-        movies = new MoviesPanel(this, () -> {
+        movies = new MoviesPage(this, () -> {
             if (movies != null) root.removeView(movies.view());
             movies = null;
             pageFocus(true);
